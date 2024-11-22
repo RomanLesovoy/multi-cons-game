@@ -1,0 +1,97 @@
+.game-room {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  .lobby {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    .room-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+
+      .player-count {
+        background: #f0f0f0;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.9em;
+      }
+    }
+
+    .players-list {
+      margin: 20px 0;
+
+      .player {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        background: #f8f8f8;
+        margin-bottom: 8px;
+        border-radius: 4px;
+
+        .master-badge {
+          font-size: 1.2em;
+        }
+
+        .you-badge {
+          color: #666;
+          font-style: italic;
+        }
+      }
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1em;
+
+        &:disabled {
+          background: #cccccc;
+          cursor: not-allowed;
+        }
+      }
+
+      button:not(.leave-button) {
+        background: #4a90e2;
+        color: white;
+
+        &:hover:not(:disabled) {
+          background: #357abd;
+        }
+      }
+
+      .leave-button {
+        background: #ff4444;
+        color: white;
+
+        &:hover {
+          background: #cc3333;
+        }
+      }
+    }
+  }
+
+  .game {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,13 @@
+<section class="games-container">
+  <h2>Available games</h2>
+  
+  <div class="games-list">
+    <div *ngFor="let game of games$ | async" class="game-item">
+      <span class="game-name">{{ game.name }}</span>
+      <span class="player-count">{{ game.players.length }}/{{ game.maxPlayers }}</span>
+      <button (click)="joinGame(game.id)">Join</button>
+    </div>
+  </div>
+
+  <button class="back-button" routerLink="/">Back</button>
+</section>

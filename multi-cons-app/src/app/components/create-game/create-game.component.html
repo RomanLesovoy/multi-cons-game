@@ -1,0 +1,31 @@
+<section class="create-game-container">
+  <h2>Create new game</h2>
+  
+  <form [formGroup]="gameForm" (ngSubmit)="createGame()">
+    <div class="form-group">
+      <input 
+        formControlName="name" 
+        placeholder="Game name"
+        [class.invalid]="gameForm.get('name')?.invalid && gameForm.get('name')?.touched"
+      >
+      <div class="error" *ngIf="gameForm.get('name')?.invalid && gameForm.get('name')?.touched">
+        Type game name (min 3 symbols)
+      </div>
+    </div>
+
+    <div class="form-group">
+      <input 
+        formControlName="playerName" 
+        placeholder="Player name"
+        [class.invalid]="gameForm.get('playerName')?.invalid && gameForm.get('playerName')?.touched"
+      >
+      <div class="error" *ngIf="gameForm.get('playerName')?.invalid && gameForm.get('playerName')?.touched">
+        Type player name (min 2 symbols)
+      </div>
+    </div>
+
+    <button type="submit" [disabled]="gameForm.invalid">Create</button>
+  </form>
+
+  <button class="back-button" routerLink="/">Back</button>
+</section>

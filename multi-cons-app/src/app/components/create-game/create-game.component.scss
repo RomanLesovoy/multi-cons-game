@@ -1,0 +1,38 @@
+.create-game-container {
+  max-width: 400px;
+  margin: 40px auto;
+  padding: 20px;
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 20px 0;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+
+    input {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1em;
+
+      &.invalid {
+        border-color: #ff4444;
+      }
+    }
+
+    .error {
+      color: #ff4444;
+      font-size: 0.8em;
+    }
+  }
+
+  .back-button {
+    margin-top: 20px;
+  }
+}
