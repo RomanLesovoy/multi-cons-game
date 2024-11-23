@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { MenuComponent } from "./partials/menu/menu.component";
+import { GameManagerService } from './services/game-manager.service';
 
 @Component({
   selector: 'app-root',
@@ -11,4 +12,9 @@ import { MenuComponent } from "./partials/menu/menu.component";
 })
 export class AppComponent {
   title = 'multi-cons-app';
+
+  constructor(private gameManager: GameManagerService) {
+    this.gameManager.getRooms();
+    this.gameManager.latestRooms$().subscribe();
+  }
 }

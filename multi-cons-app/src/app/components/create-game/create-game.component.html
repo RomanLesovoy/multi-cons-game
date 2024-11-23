@@ -13,17 +13,6 @@
       </div>
     </div>
 
-    <div class="form-group">
-      <input 
-        formControlName="playerName" 
-        placeholder="Player name"
-        [class.invalid]="gameForm.get('playerName')?.invalid && gameForm.get('playerName')?.touched"
-      >
-      <div class="error" *ngIf="gameForm.get('playerName')?.invalid && gameForm.get('playerName')?.touched">
-        Type player name (min 2 symbols)
-      </div>
-    </div>
-
     <button type="submit" [disabled]="gameForm.invalid">Create</button>
   </form>
 

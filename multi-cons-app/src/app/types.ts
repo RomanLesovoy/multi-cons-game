@@ -2,7 +2,6 @@ export interface Player {
   id: string;
   name: string;
   socketId: string;
-  isMaster: boolean;
 }
 
 export interface Room {
@@ -11,18 +10,11 @@ export interface Room {
   players: Player[];
   maxPlayers: number;
   masterId?: string;
-}
-
-export interface RoomState {
-  players: Player[];
-  room: Room | null;
   isGameStarted: boolean;
-  currentPlayer: Player | null;
 }
 
 export interface PlayerJoinedResponse {
   room: Room;
-  player: Player;
   players: Player[];
   masterId: string;
   error?: any;
@@ -32,6 +24,11 @@ export interface PlayerJoinedEvent {
   player: Player;
   shouldInitiateConnection: boolean;
   isMaster: boolean;
+}
+
+export interface PlayerLeftEvent {
+  playerId: string;
+  newMasterId: string;
 }
 
 export interface RTCOfferEvent {

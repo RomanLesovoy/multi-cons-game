@@ -1,5 +1,5 @@
 import { Socket } from "ngx-socket-io";
-import { PlayerJoinedEvent, RTCOfferEvent, RTCAnswerEvent, RTCIceCandidateEvent } from '../../app/types';
+import { PlayerJoinedEvent, RTCOfferEvent, RTCAnswerEvent, RTCIceCandidateEvent, PlayerLeftEvent } from '../../app/types';
 import { GameStateUpdate } from '../entities/GameTypes';
 import { SocketEvents } from '../../app/services/socket.events';
 
@@ -11,7 +11,6 @@ export class ConnectionManager {
 
   constructor(
     private socket: Socket,
-    // private localPlayerId: string,
   ) {
     this.setupSocketListeners();
   }
@@ -29,6 +28,15 @@ export class ConnectionManager {
         const dataChannel = peerConnection.createDataChannel('gameState');
         this.setupDataChannel(dataChannel, player.id); // player.id -> new player
         this.initiateOffer(peerConnection, player.id);
+      }
+    });
+
+    // Player left
+    this.socket.on(SocketEvents.PLAYER_LEFT, ({ playerId }: PlayerLeftEvent) => {
+      const peerConnection = this.peers.get(playerId);
+      if (peerConnection) {
+        peerConnection.close();
+        this.peers.delete(playerId);
       }
     });
 

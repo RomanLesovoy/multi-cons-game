@@ -18,16 +18,20 @@ export class CreateGameComponent {
 
   gameForm = this.fb.group({
     name: ['', [Validators.required, Validators.minLength(3)]],
-    playerName: ['', [Validators.required, Validators.minLength(2)]]
   });
 
   async createGame() {
+    console.log('createGame');
     if (this.gameForm.valid) {
-      const { name, playerName } = this.gameForm.value;
-      const game = await this.gameManagerService.createGame(name!, playerName!);
-      game.subscribe((game) => {
+      const { name } = this.gameForm.value;
+      
+      console.log('try create game');
+      try {
+        const game = await this.gameManagerService.createGame(name!);
         this.router.navigate(['/game', game.id]);
-      });
+      } catch {
+        console.error('Failed to create game');
+      }
     }
   }
 }

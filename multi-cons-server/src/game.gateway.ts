@@ -1,7 +1,7 @@
 import { WebSocketGateway, WebSocketServer, SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RoomService } from './room.service';
-import { SocketEvents } from './room.types';
+import { Room, SocketEvents } from './room.types';
 
 @WebSocketGateway({
     cors: {
@@ -19,9 +19,13 @@ export class GameGateway {
       @ConnectedSocket() client: Socket,
       @MessageBody() data: { roomId: string }
     ) {
-      if (client.id !== (await this.roomService.getRoom(data.roomId))?.masterId) {
-        throw new Error('You are not a master');
+      const room = await this.roomService.getRoom(data.roomId);
+      if (!room) return { error: 'Room not found' };
+
+      if (client.id !== room.masterId) {
+        return { error: 'You are not a master' };
       }
+      await this.roomService.updateRoom(data.roomId, { ...room, isGameStarted: true });
       this.server.to(data.roomId).emit(SocketEvents.GAME_STARTED);
     }
 
@@ -30,25 +34,35 @@ export class GameGateway {
       @ConnectedSocket() client: Socket,
       @MessageBody() data: { name: string, playerName: string }
     ) {
+      console.log('create room');
         const room = await this.roomService.createRoom({
-            name: data.name,
-            maxPlayers: 4,
-            masterId: client.id
+          name: data.name,
+          maxPlayers: 4,
+          masterId: client.id
         });
 
-        const player = await this.roomService.addPlayerToRoom(room.id, {
-            id: client.id,
-            name: data.playerName,
-            socketId: client.id
-        });
+        console.log('room', room);
 
-        client.join(room.id);
-        return { room, player };
+        try {
+          await this.playerJoined(client, { roomId: room.id, playerName: data.playerName }, room);
+          return { room };
+        } catch (e) {
+          return { error: e };
+        } finally {
+          this.handleLatestRooms();
+        }
     }
 
-    @SubscribeMessage(SocketEvents.GET_ROOMS)
-    async handleGetRooms(@ConnectedSocket() client: Socket) {
+    /**
+     * Push latest rooms to all clients
+     * needs for game-manager.service
+     * 
+     * @TODO make emit for only one room (to avoid so much event-traffic)
+     */
+    @SubscribeMessage(SocketEvents.LATEST_ROOMS)
+    async handleLatestRooms() {
       const rooms = await this.roomService.getRooms();
+      this.server.emit(SocketEvents.LATEST_ROOMS, rooms);
       return rooms;
     }
 
@@ -59,48 +73,84 @@ export class GameGateway {
     ) {
         const room = await this.roomService.getRoom(data.roomId);
 
-        if (!room) throw new Error('Room not found');
+        if (!room) return { error: 'Room not found' };
 
-        const player = await this.roomService.addPlayerToRoom(data.roomId, {
-          id: client.id,
-          name: data.playerName,
-          socketId: client.id
+        try {
+          await this.playerJoined(client, data, room);
+
+          return { 
+            room,
+            players: room.players.filter(p => p.id !== client.id),
+            masterId: room.masterId
+          };
+        } catch (e) {
+          return { error: e };
+        }
+    }
+
+    private async playerJoined(
+      @ConnectedSocket() client: Socket,
+      @MessageBody() data: { roomId: string, playerName: string },
+      room: Room
+    ) {
+      const player = await this.roomService.addPlayerToRoom(data.roomId, {
+        id: client.id,
+        name: data.playerName,
+        socketId: client.id
+      });
+
+      client.join(data.roomId);
+
+      // Send a signal to all players in the room about the new participant
+      client.to(data.roomId).emit(SocketEvents.PLAYER_JOINED, { 
+        player: player,
+        isMaster: client.id === room.masterId,
+        shouldInitiateConnection: true, // only existed participants should initiate connection
+      });
+
+      this.handleLatestRooms();
+    }
+
+    @SubscribeMessage(SocketEvents.LEAVE_ROOM)
+    async handleLeaveRoom(
+      @ConnectedSocket() client: Socket,
+      @MessageBody() data: { roomId: string }
+    ) {
+      try {
+        const room = await this.roomService.removePlayerFromRoom(data.roomId, client.id);
+
+        // Notify other players about the departure
+        this.server.to(data.roomId).emit(SocketEvents.PLAYER_LEFT, {
+          playerId: client.id,
+          newMasterId: room.masterId
         });
-
-        client.join(data.roomId);
-
-        // Send a signal to all players in the room about the new participant
-        client.to(data.roomId).emit(SocketEvents.PLAYER_JOINED, { 
-          player: player,
-          isMaster: client.id === room.masterId,
-          shouldInitiateConnection: true, // only existed participants should initiate connection
-        });
-        
-        return { 
-          room,
-          player,
-          players: room.players.filter(p => p.id !== client.id),
-          masterId: room.masterId
-        };
+      } catch (e) {
+        return { error: e };
+      } finally {
+        this.handleLatestRooms();
+      }
     }
 
     @SubscribeMessage('disconnect')
     async handleDisconnect(@ConnectedSocket() client: Socket) {
         // Find the room where the player was
-        const rooms = this.server.sockets.adapter.sids.get(client.id);
-        if (!rooms) return;
+        console.log('disconnect', client.id);
+        const rooms = await this.roomService.findRoomsByPlayerId(client.id);
+        if (!rooms.length) return;
+        console.log(rooms, '0000');
 
-        for (const roomId of rooms) {
-            if (roomId !== client.id) { // Skip personal socket room
-                await this.roomService.removePlayerFromRoom(roomId, client.id);
-                const room = await this.roomService.getRoom(roomId);
-                
-                // Notify other players about the departure
-                this.server.to(roomId).emit(SocketEvents.PLAYER_LEFT, {
-                    playerId: client.id,
-                    newMasterId: room?.masterId
-                });
-            }
+        for (let room of rooms) {
+          if (room.id !== client.id) { // Skip personal socket room
+            const updatedRoom = await this.roomService.removePlayerFromRoom(room.id, client.id);
+            
+            // Notify other players about the departure
+            this.server.to(room.id).emit(SocketEvents.PLAYER_LEFT, {
+              playerId: client.id,
+              newMasterId: updatedRoom.masterId
+            });
+
+            this.handleLatestRooms();
+          }
         }
     }
 

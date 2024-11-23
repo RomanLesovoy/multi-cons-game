@@ -15,12 +15,12 @@ export class GamesListComponent {
 
   constructor(
     private router: Router,
-    private gameStateService: GameStateService
+    private gameStateService: GameStateService,
   ) {
     this.games$ = this.gameStateService.rooms$;
   }
 
   joinGame(gameId: string) {
-    this.router.navigate(['/lobby', gameId]);
+    this.router.navigate(['/game', gameId]);
   }
 }

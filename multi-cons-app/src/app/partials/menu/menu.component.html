@@ -3,4 +3,7 @@
     <button routerLink="/games">Games</button>
     <button routerLink="/create-game">Create Game</button>
   </nav>
+  <div class="player-info">
+    <p>Name: {{ (currentPlayer$ | async)?.name }}</p>
+  </div>
 </menu>

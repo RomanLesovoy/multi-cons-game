@@ -2,27 +2,27 @@
   <!-- Lobby -->
   <div class="lobby" *ngIf="!this.room.isGameStarted">
     <div class="room-header">
-      <h2>{{ this.room.room?.name }}</h2>
-      <span class="player-count">{{ this.room.players.length }}/{{ this.room.room?.maxPlayers }}</span>
+      <h2>{{ this.room.name }}</h2>
+      <span class="player-count">{{ this.room.players.length }}/{{ this.room.maxPlayers }}</span>
     </div>
 
     <div class="players-list">
       <div class="player" *ngFor="let player of room.players">
         <span class="player-name">{{ player.name }}</span>
-        <span class="master-badge" *ngIf="player.id === this.room.room?.masterId">👑</span>
-        <span class="you-badge" *ngIf="player.id === this.room.currentPlayer?.id">(You)</span>
+        <span class="master-badge" *ngIf="player.id === this.room.masterId">👑</span>
+        <span class="you-badge" *ngIf="player.id === this.currentPlayer?.id">(You)</span>
       </div>
     </div>
 
     <div class="controls">
       <button 
-        *ngIf="this.room.currentPlayer?.isMaster" 
+        *ngIf="this.currentPlayer?.id === this.room.masterId" 
         (click)="startGame()"
         [disabled]="!this.room.players.length"
       >
         Start game
       </button>
-      <button class="leave-button" routerLink="/games">Leave room</button>
+      <button class="leave-button" (click)="leaveRoom()">Leave room</button>
     </div>
   </div>
 

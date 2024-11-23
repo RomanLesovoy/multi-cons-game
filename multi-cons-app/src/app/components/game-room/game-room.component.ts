@@ -1,12 +1,13 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, of, Subject } from 'rxjs';
-import { PlayerManagerService } from '../../services/player-manager.service';
+import { catchError, of, pipe, Subject } from 'rxjs';
 import { GameManagerService } from '../../services/game-manager.service';
 import { GameStateService } from '../../services/game-state.service';
-import { RoomState } from '../../types';
+import { Player, Room } from '../../types';
 import { GameComponent } from '../game/game.component';
+import { CurrentPlayerService } from '../../services/current-player.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-game-room',
@@ -17,32 +18,42 @@ import { GameComponent } from '../game/game.component';
 })
 export class GameRoomComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
-  public room!: RoomState;
+  public currentPlayer!: Player | null;
+  public room!: Room | null;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private playerManagerService: PlayerManagerService,
+    private currentPlayerService: CurrentPlayerService,
     private gameManagerService: GameManagerService,
-    private gameStateService: GameStateService
+    private gameStateService: GameStateService,
+    private destroyRef: DestroyRef
   ) {
-    this.gameStateService.roomState$.subscribe(roomState => {
-      this.room = roomState;
-    });
+    this.gameStateService.room$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(room => {
+        console.log(room, 'room game-room');
+        this.room = room;
+      });
+
+    this.currentPlayerService.currentPlayer$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(player => {
+        console.log(player, 'player game-room');
+        this.currentPlayer = player;
+      });
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     const roomId = this.route.snapshot.params['id'];
 
-    const playerName = localStorage.getItem('playerName') || 'Player'; // todo fix
-
-    this.playerManagerService.joinRoom(roomId).pipe(
-      catchError((error) => {
-        console.error('Failed to join room:', error);
-        this.router.navigate(['/games']);
-        return of(null);
-      })
-    ).subscribe();
+    try {
+      const res = await this.gameManagerService.joinRoom(roomId);
+      console.log(res, 'res');
+    } catch {
+      console.error('Failed to join room');
+      this.router.navigate(['/games']);
+    }
   }
 
   startGame(): void {
@@ -50,13 +61,14 @@ export class GameRoomComponent implements OnInit, OnDestroy {
   }
 
   leaveRoom(): void {
-    this.playerManagerService.leaveRoom();
+    this.gameManagerService.leaveRoom();
     this.router.navigate(['/games']);
   }
 
   ngOnDestroy() {
+    this.gameManagerService.leaveRoom();
+    console.log('leave room');
     this.destroy$.next();
     this.destroy$.complete();
-    this.playerManagerService.leaveRoom();
   }
 }

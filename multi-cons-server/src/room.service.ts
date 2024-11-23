@@ -12,7 +12,8 @@ export class RoomService {
             name: data.name,
             players: [],
             maxPlayers: data.maxPlayers,
-            masterId: data.masterId
+            masterId: data.masterId,
+            isGameStarted: false
         };
         
         this.rooms.set(roomId, room);
@@ -23,17 +24,13 @@ export class RoomService {
         return Array.from(this.rooms.values());
     }
 
-    // async findRoomByPlayerId(playerId: string): Promise<Room | undefined> {
-    //   for (const room of this.rooms.values()) {
-    //       if (room.players.some(p => p.id === playerId)) {
-    //           return room;
-    //       }
-    //   }
-    //   return undefined;
-    // }
-
     async getRoom(roomId: string): Promise<Room | undefined> {
         return this.rooms.get(roomId);
+    }
+
+    async updateRoom(roomId: string, room: Room): Promise<Room> {
+        this.rooms.set(roomId, room);
+        return room;
     }
 
     async getRoomPlayers(roomId: string): Promise<Player[]> {
@@ -43,7 +40,13 @@ export class RoomService {
 
     async addPlayerToRoom(roomId: string, player: Player): Promise<Player> {
         const room = this.rooms.get(roomId);
+
+        if (room.players.some(p => p.id === player.id)) {
+            return player;
+        }
+
         if (!room) throw new Error('Room not found');
+
         if (room.players.length >= room.maxPlayers) {
             throw new Error('Room is full');
         }
@@ -54,23 +57,34 @@ export class RoomService {
         }
 
         room.players.push(player);
+
+        await this.updateRoom(roomId, room);
+
         return player;
     }
 
-    async removePlayerFromRoom(roomId: string, playerId: string): Promise<void> {
+    async findRoomsByPlayerId(playerId: string): Promise<Room[]> {
+        return Array.from(this.rooms.values())
+          .filter(room => room.players.some(p => p.id === playerId));
+    }
+
+    async removePlayerFromRoom(roomId: string, playerId: string): Promise<Room> {
         const room = this.rooms.get(roomId);
         if (!room) return;
 
         room.players = room.players.filter(p => p.id !== playerId);
+        
+        // If room is empty, delete it
+        if (room.players.length === 0) {
+            this.rooms.delete(roomId);
+            return room;
+        }
 
         // If master left the room, assign a new one
         if (room.masterId === playerId && room.players.length > 0) {
             room.masterId = room.players[0].id;
         }
 
-        // If room is empty, delete it
-        if (room.players.length === 0) {
-            this.rooms.delete(roomId);
-        }
+        return await this.updateRoom(roomId, room);
     }
 }
