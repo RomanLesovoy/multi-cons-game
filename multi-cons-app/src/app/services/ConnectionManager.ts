@@ -3,6 +3,7 @@ import { PlayerJoinedEvent, RTCOfferEvent, RTCAnswerEvent, RTCIceCandidateEvent,
 import { GameStateUpdate } from '../../game/entities/GameTypes';
 import { SocketEvents } from './socket.events';
 import { Injectable, OnDestroy } from "@angular/core";
+import { GameStateService } from "./game-state.service";
 
 @Injectable({
   providedIn: 'root'
@@ -15,79 +16,103 @@ export class ConnectionManager implements OnDestroy {
 
   constructor(
     private socket: Socket,
+    private gameStateService: GameStateService
   ) {
-    this.setupSocketListeners();
+    this.gameStateService.room$.subscribe((room) => {
+      if (room) {
+        this.setupSocketListeners();
+      } else {
+        this.destroy();
+      }
+    });
   }
 
-  public setStateUpdateCallback(callback: (update: GameStateUpdate) => void) {
-    this.stateUpdateCallback = callback;
-  }
+  public setupSocketListeners() {
+    this.unsubscribeFromSocketEvents();
 
-  private setupSocketListeners() {
-    // New player joined
+    // Новый игрок присоединился
     this.socket.on(SocketEvents.PLAYER_JOINED, ({ player, shouldInitiateConnection, isMaster }: PlayerJoinedEvent) => {
       this.isMasterPeer = isMaster;
-      if (shouldInitiateConnection) { // Only existed players should initiate connection with new player
-        const peerConnection = this.createPeerConnection(player.id);
-        const dataChannel = peerConnection.createDataChannel('gameState');
-        this.setupDataChannel(dataChannel, player.id); // player.id -> new player
-        this.initiateOffer(peerConnection, player.id);
+      if (shouldInitiateConnection) {
+        this.initiateConnection(player.id);
       }
     });
 
-    // Player left
+    // Игрок покинул игру
     this.socket.on(SocketEvents.PLAYER_LEFT, ({ playerId }: PlayerLeftEvent) => {
-      const peerConnection = this.peers.get(playerId);
-      if (peerConnection) {
-        peerConnection.close();
-        this.peers.delete(playerId);
+      this.removePeer(playerId);
+    });
+
+    // WebRTC сигналы
+    this.socket.on(SocketEvents.RTC_OFFER, ({ from, offer }: any) => {
+      this.handleOffer(from, offer);
+    });
+
+    this.socket.on(SocketEvents.RTC_ANSWER, ({ from, answer }: any) => {
+      const peer = this.peers.get(from);
+      if (peer) peer.setRemoteDescription(answer);
+    });
+
+    this.socket.on(SocketEvents.RTC_ICE_CANDIDATE, ({ from, candidate }: any) => {
+      const peer = this.peers.get(from);
+      if (peer?.remoteDescription) {
+        peer.addIceCandidate(candidate);
       }
-    });
-
-    // RTC signals handling
-    this.socket.on(SocketEvents.RTC_OFFER, async ({ from, offer }: RTCOfferEvent) => {
-      const peerConnection = this.createPeerConnection(from); // We are not initiators
-      await this.handleRTCOffer(peerConnection, offer);
-    });
-
-    this.socket.on(SocketEvents.RTC_ANSWER, async ({ from, answer }: RTCAnswerEvent) => {
-      await this.handleRTCAnswer(from, answer);
-    });
-
-    this.socket.on(SocketEvents.RTC_ICE_CANDIDATE, async ({ from, candidate }: RTCIceCandidateEvent) => {
-      await this.handleIceCandidate(from, candidate);
     });
   }
 
-  private createPeerConnection(peerId: string): RTCPeerConnection {
-    // Check if peer connection already exists
-    let peerConnection = this.peers.get(peerId);
-    if (peerConnection) {
-      return peerConnection;
-    }
+  private async initiateConnection(peerId: string) {
+    const peer = await this.initializeConnection(peerId);
+    const dataChannel = peer.createDataChannel('gameState');
+    this.setupDataChannel(dataChannel, peerId);
 
-    // Create new peer connection
-    peerConnection = new RTCPeerConnection({
-      // todo check is there any other stun servers
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    const peerLocalDescription = await peer.localDescription;
+
+    this.socket.emit(SocketEvents.RTC_OFFER, {
+      targetId: peerId,
+      offer: peerLocalDescription
+    });
+  }
+
+  private async initializeConnection(peerId: string): Promise<RTCPeerConnection> {
+    const peer = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
 
-    // Setup event handlers
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
+    peer.onicecandidate = ({ candidate }) => {
+      if (candidate) {
         this.socket.emit(SocketEvents.RTC_ICE_CANDIDATE, {
           targetId: peerId,
-          candidate: event.candidate
+          candidate
         });
       }
     };
 
-    peerConnection.ondatachannel = (event) => {
-      this.setupDataChannel(event.channel, peerId);
+    peer.ondatachannel = ({ channel }) => {
+      this.setupDataChannel(channel, peerId);
     };
+    this.peers.set(peerId, peer);
 
-    this.peers.set(peerId, peerConnection);
-    return peerConnection;
+    return peer
+  }
+
+  private async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
+    const peer = await this.initializeConnection(peerId);
+
+    await peer.setRemoteDescription(offer);
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+
+    this.socket.emit(SocketEvents.RTC_ANSWER, {
+      targetId: peerId,
+      answer
+    });
+  }
+
+  public setStateUpdateCallback(callback: (update: GameStateUpdate) => void) {
+    this.stateUpdateCallback = callback;
   }
 
   private setupDataChannel(channel: RTCDataChannel, peerId: string) {
@@ -97,82 +122,42 @@ export class ConnectionManager implements OnDestroy {
     };
 
     channel.onmessage = (event) => {
-      const update: GameStateUpdate = JSON.parse(event.data);
-      console.log('channel.onmessage', update);
-      if (this.stateUpdateCallback) {
-        this.stateUpdateCallback(update);
-      }
+      console.log('Data channel message', event.data);
+      const update = JSON.parse(event.data);
+      this.stateUpdateCallback?.(update);
     };
 
     channel.onclose = () => {
-      console.log(`Data channel with ${peerId} closed`);
+      console.log('Data channel closed', peerId);
       this.dataChannels.delete(peerId);
-      this.peers.delete(peerId);
     };
   }
 
-  private async initiateOffer(peerConnection: RTCPeerConnection, peerId: string) {
-    try {
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      this.socket.emit(SocketEvents.RTC_OFFER, {
-        targetId: peerId,
-        offer: peerConnection.localDescription
-      });
-    } catch (error) {
-      console.error('Error creating offer:', error);
-    }
-  }
-
-  private async handleRTCOffer(peerConnection: RTCPeerConnection, offer: RTCSessionDescriptionInit) {
-    try {
-      await peerConnection.setRemoteDescription(offer);
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      
-      this.socket.emit(SocketEvents.RTC_ANSWER, {
-        // @ts-ignore todo id not exists 
-        targetId: peerConnection.id,
-        answer: peerConnection.localDescription
-      });
-    } catch (error) {
-      console.error('Error handling offer:', error);
-    }
-  }
-
-  private async handleRTCAnswer(peerId: string, answer: RTCSessionDescriptionInit) {
-    const peerConnection = this.peers.get(peerId);
-    if (peerConnection) {
-      await peerConnection.setRemoteDescription(answer);
-    }
-  }
-
-  private async handleIceCandidate(peerId: string, candidate: RTCIceCandidateInit) {
-    const peerConnection = this.peers.get(peerId);
-    if (peerConnection) {
-      await peerConnection.addIceCandidate(candidate);
-    }
+  private removePeer(peerId: string) {
+    this.dataChannels.get(peerId)?.close();
+    this.dataChannels.delete(peerId);
+    this.peers.get(peerId)?.close();
+    this.peers.delete(peerId);
   }
 
   public broadcastGameState(state: GameStateUpdate) {
-    const stateString = JSON.stringify(state);
+    const message = JSON.stringify(state);
     this.dataChannels.forEach(channel => {
       if (channel.readyState === 'open') {
-        channel.send(stateString);
+        channel.send(message);
       }
     });
   }
 
-  removePeerConnections() {
-    this.dataChannels.forEach(channel => {
-      channel.readyState === 'open' && channel.close();
-    });
-    this.peers.forEach(peer => {
-      peer.connectionState === 'connected' && peer.close();
-    });
+  public destroy() {
+    this.unsubscribeFromSocketEvents();
+    this.peers.forEach(peer => peer.close());
+    this.dataChannels.forEach(channel => channel.close());
+    this.peers.clear();
+    this.dataChannels.clear();
   }
 
-  unsubscribeFromSocketEvents() {
+  private unsubscribeFromSocketEvents() {
     this.socket.off(SocketEvents.PLAYER_JOINED);
     this.socket.off(SocketEvents.PLAYER_LEFT);
     this.socket.off(SocketEvents.RTC_OFFER);
@@ -180,8 +165,7 @@ export class ConnectionManager implements OnDestroy {
     this.socket.off(SocketEvents.RTC_ICE_CANDIDATE);
   }
 
-  ngOnDestroy(): void {
-    this.unsubscribeFromSocketEvents();
-    this.removePeerConnections();
+  ngOnDestroy() {
+    this.destroy();
   }
 }

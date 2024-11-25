@@ -28,8 +28,7 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.connectionManager.unsubscribeFromSocketEvents();
-    this.connectionManager.removePeerConnections();
+    this.connectionManager.destroy();
     this.game?.destroy();
   }
 }
