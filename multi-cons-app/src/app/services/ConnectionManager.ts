@@ -18,6 +18,7 @@ export class ConnectionManager implements OnDestroy {
     private socket: Socket,
     private gameStateService: GameStateService
   ) {
+    // todo maybe move this to game-state service or somewhere else
     this.gameStateService.room$.subscribe((room) => {
       if (room) {
         this.setupSocketListeners();
@@ -30,7 +31,7 @@ export class ConnectionManager implements OnDestroy {
   public setupSocketListeners() {
     this.unsubscribeFromSocketEvents();
 
-    // Новый игрок присоединился
+    // New player joined
     this.socket.on(SocketEvents.PLAYER_JOINED, ({ player, shouldInitiateConnection, isMaster }: PlayerJoinedEvent) => {
       this.isMasterPeer = isMaster;
       if (shouldInitiateConnection) {
@@ -38,25 +39,27 @@ export class ConnectionManager implements OnDestroy {
       }
     });
 
-    // Игрок покинул игру
+    // Player left
     this.socket.on(SocketEvents.PLAYER_LEFT, ({ playerId }: PlayerLeftEvent) => {
       this.removePeer(playerId);
     });
 
-    // WebRTC сигналы
-    this.socket.on(SocketEvents.RTC_OFFER, ({ from, offer }: any) => {
+    // WebRTC signals
+    this.socket.on(SocketEvents.RTC_OFFER, ({ from, offer }: RTCOfferEvent) => {
       this.handleOffer(from, offer);
     });
 
-    this.socket.on(SocketEvents.RTC_ANSWER, ({ from, answer }: any) => {
+    this.socket.on(SocketEvents.RTC_ANSWER, ({ from, answer }: RTCAnswerEvent) => {
       const peer = this.peers.get(from);
       if (peer) peer.setRemoteDescription(answer);
     });
 
-    this.socket.on(SocketEvents.RTC_ICE_CANDIDATE, ({ from, candidate }: any) => {
+    this.socket.on(SocketEvents.RTC_ICE_CANDIDATE, ({ from, candidate }: RTCIceCandidateEvent) => {
       const peer = this.peers.get(from);
       if (peer?.remoteDescription) {
         peer.addIceCandidate(candidate);
+      } else {
+        console.warn('No remote description for peer', from);
       }
     });
   }
@@ -117,18 +120,15 @@ export class ConnectionManager implements OnDestroy {
 
   private setupDataChannel(channel: RTCDataChannel, peerId: string) {
     channel.onopen = () => {
-      console.log(`Data channel with ${peerId} opened`);
       this.dataChannels.set(peerId, channel);
     };
 
     channel.onmessage = (event) => {
-      console.log('Data channel message', event.data);
       const update = JSON.parse(event.data);
       this.stateUpdateCallback?.(update);
     };
 
     channel.onclose = () => {
-      console.log('Data channel closed', peerId);
       this.dataChannels.delete(peerId);
     };
   }

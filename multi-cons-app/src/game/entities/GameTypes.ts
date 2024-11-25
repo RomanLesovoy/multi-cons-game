@@ -28,7 +28,7 @@ export type GameState = {
 }
 
 export interface GameStateUpdate {
-  type: 'enemiesUpdate' | 'collision' | 'playerUpdate' | 'enemiesPush';
-  player?: Partial<PlayerState>;
+  type: 'enemiesUpdate' | 'collision' | 'playerUpdate' | 'enemiesPush' | 'playerJoin';
+  player?: Partial<PlayerState> & { id: string };
   enemies?: EnemyUpdate[];
 }

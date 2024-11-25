@@ -32,14 +32,12 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     this.gameStateService.room$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(room => {
-        console.log(room, 'room game-room');
         this.room = room;
       });
 
     this.currentPlayerService.currentPlayer$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(player => {
-        console.log(player, 'player game-room');
         this.currentPlayer = player;
       });
   }
@@ -48,8 +46,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     const roomId = this.route.snapshot.params['id'];
 
     try {
-      const res = await this.gameManagerService.joinRoom(roomId);
-      console.log(res, 'res');
+      await this.gameManagerService.joinRoom(roomId);
     } catch {
       console.error('Failed to join room');
       this.router.navigate(['/games']);
@@ -67,7 +64,6 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.gameManagerService.leaveRoom();
-    console.log('leave room');
     this.destroy$.next();
     this.destroy$.complete();
   }

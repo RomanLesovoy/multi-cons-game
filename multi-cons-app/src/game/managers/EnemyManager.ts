@@ -52,7 +52,6 @@ export class EnemyManager {
   update() {
     if (!this.connectionManager.isMasterPeer) return;
 
-    console.log('update enemies')
     this.enemies.forEach(enemy => enemy.update());
 
     this.connectionManager.broadcastGameState({

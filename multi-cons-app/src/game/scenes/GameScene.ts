@@ -40,13 +40,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setLocalPlayer() {
-    const player = this.currentPlayerService.getCurrentPlayer()!;
-    this.playerManager.createLocalPlayer(player.id, player.name, { x: 400, y: 300 }); // position
+    const playerData = this.currentPlayerService.getCurrentPlayer()!;
+    this.playerManager.createLocalPlayer(playerData.id, playerData.name, { x: 400, y: 300 }); // todo position
 
-    this.currentPlayerService.currentPlayer$.subscribe(player => {
+    this.currentPlayerService.currentPlayer$.subscribe(playerData => {
       // todo end game if no user
-      if (player) {
-        this.playerManager.updateRemotePlayerState(player.id, { name: player.name, id: player.id });
+      if (playerData) {
+        this.playerManager.updateRemotePlayerState(playerData.id, { name: playerData.name, id: playerData.id });
       }
     });
   }
@@ -78,15 +78,13 @@ export class GameScene extends Phaser.Scene {
     // Link cameras of all scenes
     this.playerScene.cameras.main.setScroll(0, 0);
     this.enemyScene.cameras.main.setScroll(0, 0);
-    //  this.mapScene.cameras.main.setScroll(0, 0);
+    this.mapScene.cameras.main.setScroll(0, 0);
 
     scenes.forEach(scene => {
       // Set camera bounds
       scene.cameras.main.setBounds(0, 0, config.mapWidth, config.mapHeight);
       // Basic camera position
       scene.cameras.main.setScroll(0, 0);
-      // Make camera follow map bounds
-      // scene.cameras.main.setBackgroundColor(0x000000);
     });
 
      this.playerScene.events.on('camera-update', (x: number, y: number) => {
@@ -102,6 +100,9 @@ export class GameScene extends Phaser.Scene {
   private handleGameStateUpdate(update: GameStateUpdate) {
     console.log('handleGameStateUpdate', update);
     switch (update.type) {
+      case 'playerJoin':
+        this.playerManager.createRemotePlayer(update.player!.id!, update.player!.name!, update.player!.position!);
+        break;
       case 'playerUpdate':
         this.playerManager.updateRemotePlayerState(update.player!.id!, update.player!);
         break;

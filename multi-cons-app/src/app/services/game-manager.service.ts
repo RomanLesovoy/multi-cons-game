@@ -31,7 +31,6 @@ export class GameManagerService implements OnDestroy {
     return this.socket.fromEvent<Room[]>(SocketEvents.LATEST_ROOMS)
       .pipe(
         tap((rooms) => {
-          console.log(rooms, 'rooms');
           this.gameStateService.updateRooms(rooms);
         })
       );
@@ -41,7 +40,6 @@ export class GameManagerService implements OnDestroy {
     return new Promise((res, rej) => {
       const playerName = this.currentPlayerService.getPlayerName();
       this.socket.emit(SocketEvents.JOIN_ROOM, { roomId, playerName }, (response: PlayerJoinedResponse) => {
-        console.log(response, 'response join room');
         if (response.error) {
           return rej(response.error);
         }
@@ -54,7 +52,6 @@ export class GameManagerService implements OnDestroy {
   public leaveRoom(): void {
     const room = this.gameStateService.getRoom();
     if (room) {
-      console.log('emit leave room');
       this.socket.emit(SocketEvents.LEAVE_ROOM, { roomId: room.id });
     }
     this.gameStateService.resetRoom();
@@ -62,16 +59,13 @@ export class GameManagerService implements OnDestroy {
 
   getRooms(): void {
     this.socket.emit(SocketEvents.LATEST_ROOMS, (rooms: Room[]) => {
-      console.log(rooms)
       this.gameStateService.updateRooms(rooms);
     });
   }
 
   startGame(): void {
     const room = this.gameStateService.getRoom();
-    console.log(room, 'start game room');
     if (room && this.currentPlayerService.getCurrentPlayer()?.id === room.masterId) {
-      console.log('start emit');
       this.socket.emit(SocketEvents.START_GAME, { roomId: room.id }, (response: any) => {
         if (response.error) {
           throw new Error(response.error);
@@ -82,7 +76,6 @@ export class GameManagerService implements OnDestroy {
 
   private setupSocketListeners() {
     this.socket.fromEvent(SocketEvents.GAME_STARTED).subscribe((gameState: any) => {
-      console.log('gameStarted', gameState);
       const room = this.gameStateService.getRoom()!;
       this.gameStateService.setRoom({
         ...room,
@@ -94,9 +87,7 @@ export class GameManagerService implements OnDestroy {
   public createGame(name: string): Promise<Room> {
     const playerName = this.currentPlayerService.getPlayerName();
     return new Promise((resolve, reject) => {
-      console.log('create game wtf', this.socket);
       this.socket.emit(SocketEvents.CREATE_ROOM, { name, playerName }, (response: any) => {
-        console.log('111')
         if (response.error) {
           reject(response.error);
         } else {

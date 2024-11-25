@@ -27,20 +27,30 @@ export class PlayerManager {
     this.moveLocalPlayer();
   }
 
-  createLocalPlayer(playerId: string, playerName: string, position: Position) {
+  public createLocalPlayer(playerId: string, playerName: string, position: Position) {
     this.localPlayerId = playerId;
     const player = new Player(this.localPlayerId, playerName, position);
     this.players.set(this.localPlayerId, player);
     this.scene.addPlayer(player);
-    // this.scene.cameras.main.startFollow(player);
+
+    this.connectionManager.broadcastGameState({
+      type: 'playerJoin',
+      player: { id: playerId, name: playerName, position }
+    });
+  }
+
+  public createRemotePlayer(playerId: string, playerName: string, position: Position) {
+    const player = new Player(playerId, playerName, position);
+    this.players.set(playerId, player);
+    this.scene.addPlayer(player);
   }
 
   private updateCamera(position: Position) {
-    // Отправляем событие обновления камеры в GameScene
+    // Update camera position in GameScene
     this.scene.events.emit('camera-update', position.x, position.y);
   }
 
-  moveLocalPlayer() {
+  private moveLocalPlayer() {
     const player = this.players.get(this.localPlayerId);
     if (!player) return;
 
@@ -90,20 +100,23 @@ export class PlayerManager {
     return newPosition;
   }
 
-  updateRemotePlayerState(id: string, state: Partial<PlayerState>) {
+  public updateRemotePlayerState(id: string, state: Partial<PlayerState>) {
     const player = this.players.get(id);
     if (player) {
       player.updateEntityState(state);
+    } else {
+      console.warn('Player not found in updateRemotePlayerState', id);
     }
   }
   
-  updateCurrentPlayerState(state: Partial<PlayerState>) {
+  private updateCurrentPlayerState(state: Partial<PlayerState>) {
     const player = this.players.get(this.localPlayerId);
     if (player) {
       player.updateEntityState(state);
+
       this.connectionManager.broadcastGameState({
         type: 'playerUpdate',
-        player: state
+        player: { id: this.localPlayerId, ...state }
       });
     }
   }

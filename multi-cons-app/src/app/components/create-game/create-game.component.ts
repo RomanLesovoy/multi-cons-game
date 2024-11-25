@@ -21,11 +21,9 @@ export class CreateGameComponent {
   });
 
   async createGame() {
-    console.log('createGame');
     if (this.gameForm.valid) {
       const { name } = this.gameForm.value;
       
-      console.log('try create game');
       try {
         const game = await this.gameManagerService.createGame(name!);
         this.router.navigate(['/game', game.id]);

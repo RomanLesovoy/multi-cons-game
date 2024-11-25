@@ -29,7 +29,6 @@ export class GameStateService {
   }
 
   public resetRoom() {
-    console.log('reset room');
     this.room.next(null);
   }
 
