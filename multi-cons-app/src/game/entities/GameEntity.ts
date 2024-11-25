@@ -1,4 +1,5 @@
-import { Position, PlayerState } from "./GameTypes";
+import { BaseEntityScene } from "../scenes/BaseEntityScene";
+import { Position } from "./GameTypes";
 
 export class GameEntity {
   public id: string;
@@ -15,27 +16,53 @@ export class GameEntity {
   }
 
   private static getRandomColor(): string {
-    return Phaser.Display.Color.RandomRGB().toString();
+    return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
   }
 
-  public updatePlayerState(state: Partial<PlayerState>) {
-    this.position = state.position || this.position;
-    state.position && this.sprite.setPosition(state.position.x, state.position.y);
-    state.radius && (this.radius = state.radius);
-    state.color && (this.color = state.color);
+  public updateEntityState(state: Partial<GameEntity>) {
+    if (state.position) {
+      this.position = state.position;
+      if (this.sprite) {
+        const scene = this.sprite.scene as BaseEntityScene;
+        scene.updateEntityPosition(this.id, state.position.x, state.position.y);
+      }
+    }
+    
+    if (state.radius) {
+      this.radius = state.radius;
+      const entity = (this.sprite.scene as BaseEntityScene).getEntity(this.id);
+      if (entity) {
+        entity.statsText.setText(`${100 * this.radius}`);
+      }
+    }
+    
+    if (state.color) {
+      this.color = state.color;
+      this.sprite.setFillStyle(
+        Phaser.Display.Color.HexStringToColor(this.color).color
+      );
+    }
   }
 
   public setSprite(sprite: Phaser.GameObjects.Arc) {
     this.sprite = sprite;
   }
 
-  public getState(): PlayerState {
-    return {
-      id: this.id,
-      position: this.position,
-      radius: this.radius,
-      name: this.name,
-      color: this.color
-    };
+  public getState<T extends object>(): T {
+    // Create a new object with only the needed properties
+    const state = {} as T;
+    
+    // Get all keys from the interface T
+    const keys = Object.keys(this) as Array<keyof T>;
+    
+    // Copy only properties that are in the interface
+    keys.forEach(key => {
+      if (key in this) {
+        // @ts-ignore // todo not sure
+        state[key] = this[key as keyof this] as T[keyof T];
+      }
+    });
+
+    return state;
   }
 }

@@ -34,4 +34,8 @@ export class CreateGameComponent {
       }
     }
   }
+
+  back() {
+    this.router.navigate(['/']);
+  }
 }

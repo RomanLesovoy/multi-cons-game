@@ -16,7 +16,7 @@ export class CurrentPlayerService {
     const playerName = localStorage.getItem('playerName') || this.generateName();
     this.setPlayerName(playerName);
 
-    if (this.socket.ioSocket.connected) {
+    if (!this.socket.ioSocket.connected) {
       this.socket.on('connect', () => {
         this.setSocketData();
       });
@@ -26,6 +26,7 @@ export class CurrentPlayerService {
   }
 
   private setSocketData(): void {
+    console.log(this.socket.ioSocket.id, 'socket id');
     this.currentPlayer.next({
       id: this.socket.ioSocket.id,
       name: this.getPlayerName(),

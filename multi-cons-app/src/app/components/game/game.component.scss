@@ -1,0 +1,10 @@
+:host { display: block; }
+
+#game-container {
+  background-color: transparent;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 100px);
+}

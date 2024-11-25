@@ -1,9 +1,13 @@
 import { Socket } from "ngx-socket-io";
-import { PlayerJoinedEvent, RTCOfferEvent, RTCAnswerEvent, RTCIceCandidateEvent, PlayerLeftEvent } from '../../app/types';
-import { GameStateUpdate } from '../entities/GameTypes';
-import { SocketEvents } from '../../app/services/socket.events';
+import { PlayerJoinedEvent, RTCOfferEvent, RTCAnswerEvent, RTCIceCandidateEvent, PlayerLeftEvent } from '../types';
+import { GameStateUpdate } from '../../game/entities/GameTypes';
+import { SocketEvents } from './socket.events';
+import { Injectable, OnDestroy } from "@angular/core";
 
-export class ConnectionManager {
+@Injectable({
+  providedIn: 'root'
+})
+export class ConnectionManager implements OnDestroy {
   private peers: Map<string, RTCPeerConnection> = new Map();
   private dataChannels: Map<string, RTCDataChannel> = new Map();
   public isMasterPeer: boolean = false;
@@ -157,5 +161,27 @@ export class ConnectionManager {
         channel.send(stateString);
       }
     });
+  }
+
+  removePeerConnections() {
+    this.dataChannels.forEach(channel => {
+      channel.readyState === 'open' && channel.close();
+    });
+    this.peers.forEach(peer => {
+      peer.connectionState === 'connected' && peer.close();
+    });
+  }
+
+  unsubscribeFromSocketEvents() {
+    this.socket.off(SocketEvents.PLAYER_JOINED);
+    this.socket.off(SocketEvents.PLAYER_LEFT);
+    this.socket.off(SocketEvents.RTC_OFFER);
+    this.socket.off(SocketEvents.RTC_ANSWER);
+    this.socket.off(SocketEvents.RTC_ICE_CANDIDATE);
+  }
+
+  ngOnDestroy(): void {
+    this.unsubscribeFromSocketEvents();
+    this.removePeerConnections();
   }
 }

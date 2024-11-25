@@ -57,7 +57,6 @@ export class GameManagerService implements OnDestroy {
       console.log('emit leave room');
       this.socket.emit(SocketEvents.LEAVE_ROOM, { roomId: room.id });
     }
-    this.socket.off(SocketEvents.GAME_STARTED);
     this.gameStateService.resetRoom();
   }
 
@@ -70,7 +69,9 @@ export class GameManagerService implements OnDestroy {
 
   startGame(): void {
     const room = this.gameStateService.getRoom();
+    console.log(room, 'start game room');
     if (room && this.currentPlayerService.getCurrentPlayer()?.id === room.masterId) {
+      console.log('start emit');
       this.socket.emit(SocketEvents.START_GAME, { roomId: room.id }, (response: any) => {
         if (response.error) {
           throw new Error(response.error);
@@ -107,5 +108,6 @@ export class GameManagerService implements OnDestroy {
 
   ngOnDestroy() {
     this.leaveRoom();
+    this.socket.off(SocketEvents.GAME_STARTED);
   }
 }

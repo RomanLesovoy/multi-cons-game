@@ -7,15 +7,19 @@ export interface GameEntity {
   id: string;
   position: Position;
   radius: number;
+  color: string;
 }
 
 export interface PlayerState extends GameEntity {
   name: string;
-  color: string;
 }
 
 export interface EnemyState extends GameEntity {
-  color: string;
+  speed: number;
+}
+
+export interface EnemyUpdate extends EnemyState {
+  name: string;
 }
 
 export type GameState = {
@@ -24,7 +28,7 @@ export type GameState = {
 }
 
 export interface GameStateUpdate {
-  type: 'enemiesUpdate' | 'collision' | 'playerUpdate';
+  type: 'enemiesUpdate' | 'collision' | 'playerUpdate' | 'enemiesPush';
   player?: Partial<PlayerState>;
-  enemies?: EnemyState[];
+  enemies?: EnemyUpdate[];
 }

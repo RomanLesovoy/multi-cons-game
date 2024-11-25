@@ -1,29 +1,29 @@
 import { Enemy } from "../entities/Enemy";
-import { Position } from "../entities/GameTypes";
-import { ConnectionManager } from "./ConnectionManager";
+import { EnemyUpdate, Position } from "../entities/GameTypes";
+import { ConnectionManager } from "../../app/services/ConnectionManager";
 import { EnemyScene } from "../scenes/EnemyScene";
 
 export class EnemyManager {
   private enemies: Enemy[] = [];
   
   constructor(
-      private connectionManager: ConnectionManager,
-      private scene: EnemyScene
+    private connectionManager: ConnectionManager,
+    private scene: EnemyScene
   ) {}
 
   generateEnemies(count: number) {
-      if (!this.connectionManager.isMasterPeer) return;
+    if (!this.connectionManager.isMasterPeer) return;
 
-      for (let i = 0; i < count; i++) {
-          const enemy = new Enemy(
-            crypto.randomUUID(),
-            `Enemy ${i + 1}`,
-            this.getRandomPosition(),
-            Math.random() * 20 + 10,
-          );
-          this.enemies.push(enemy);
-          this.scene.addEnemy(enemy);
-      }
+    for (let i = 0; i < count; i++) {
+      const enemy = new Enemy(
+        crypto.randomUUID(),
+        `Enemy ${i + 1}`,
+        this.getRandomPosition(),
+        Math.random() * 20 + 10,
+      );
+      this.enemies.push(enemy);
+      this.scene.addEnemy(enemy);
+    }
   }
 
   getRandomPosition(): Position {
@@ -33,13 +33,31 @@ export class EnemyManager {
     };
   }
 
-  update() {
-      if (!this.connectionManager.isMasterPeer) return;
+  setEnemies(enemies: EnemyUpdate[]) {
+    if (this.connectionManager.isMasterPeer) return;
 
-      this.enemies.forEach(enemy => enemy.update());
-      this.connectionManager.broadcastGameState({
-          type: 'enemiesUpdate',
-          enemies: this.enemies.map(e => e.getState())
-      });
+    this.enemies = enemies.map(enemy => new Enemy(enemy.id, enemy.name, enemy.position, enemy.speed));
+    this.scene.syncEnemies(this.enemies);
+  }
+
+  pushEnemies(enemies: EnemyUpdate[]) {
+    if (this.connectionManager.isMasterPeer) return;
+
+    const prev = this.enemies;
+    const newEnemies = enemies.map(enemy => new Enemy(enemy.id, enemy.name, enemy.position, enemy.speed));
+    this.enemies = [...prev, ...newEnemies];
+    this.scene.syncEnemies(this.enemies);
+  }
+
+  update() {
+    if (!this.connectionManager.isMasterPeer) return;
+
+    console.log('update enemies')
+    this.enemies.forEach(enemy => enemy.update());
+
+    this.connectionManager.broadcastGameState({
+      type: 'enemiesUpdate',
+      enemies: this.enemies.map(e => e.getState<EnemyUpdate>())
+    });
   }
 }

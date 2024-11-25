@@ -1,18 +1,22 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { Socket } from 'ngx-socket-io';
+import { ConnectionManager } from '../../services/ConnectionManager';
 import { Game } from '../../../game/game';
+import { CurrentPlayerService } from '../../services/current-player.service';
 
 @Component({
   standalone: true,
   selector: 'app-game',
-  template: '<section id="game"></section>',
-  styles: [':host { display: block; }']
+  template: '<section id="game-container"></section>',
+  styleUrls: ['./game.component.scss']
 })
 export class GameComponent implements OnInit, OnDestroy {
   private game?: Game;
   private static gameInstance?: GameComponent;
 
-  constructor(private socket: Socket) {
+  constructor(
+    private connectionManager: ConnectionManager,
+    private currentPlayerService: CurrentPlayerService
+  ) {
     if (!GameComponent.gameInstance) { // todo check
       GameComponent.gameInstance = this;
     }
@@ -20,10 +24,12 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.game = new Game(this.socket);
+    this.game = new Game(this.connectionManager, this.currentPlayerService);
   }
 
   ngOnDestroy() {
+    this.connectionManager.unsubscribeFromSocketEvents();
+    this.connectionManager.removePeerConnections();
     this.game?.destroy();
   }
 }

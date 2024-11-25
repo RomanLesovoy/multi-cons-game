@@ -95,7 +95,12 @@ button {
     cursor: not-allowed;
   }
 
-  &:hover {
+  &:hover:not(:disabled) {
     color: orange;
   }
+}
+
+canvas {
+  border: 4px solid black;
+  border-style: inset;
 }

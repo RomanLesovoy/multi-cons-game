@@ -3,15 +3,19 @@ import { EnemyState, Position } from "./GameTypes";
 
 export class Enemy extends GameEntity implements EnemyState {
   private velocity: Position = { x: 0, y: 0 };
+  public speed: number;
 
   constructor(
     id: string,
     name: string,
     position: Position,
     radius: number,
-    color?: string
+    color?: string,
+    speed?: number
 ) {
     super(id, name, position, radius, color);
+
+    this.speed = speed || 10;
   }
 
   update() {

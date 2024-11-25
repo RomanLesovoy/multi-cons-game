@@ -2,7 +2,6 @@ import { ApplicationConfig, isDevMode, provideZoneChangeDetection, importProvide
 import { provideRouter } from '@angular/router';
 import { SocketIoConfig, SocketIoModule } from 'ngx-socket-io';
 import { routes } from './app.routes';
-
 const url = isDevMode() ? 'http://localhost:3000' : 'https://multi-cons-server.onrender.com';
 
 const config: SocketIoConfig = { url, options: {} };

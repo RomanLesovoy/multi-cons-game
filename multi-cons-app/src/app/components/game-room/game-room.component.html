@@ -15,6 +15,8 @@
     </div>
 
     <div class="controls">
+      <button class="leave-button" (click)="leaveRoom()">Leave room</button>
+
       <button 
         *ngIf="this.currentPlayer?.id === this.room.masterId" 
         (click)="startGame()"
@@ -22,7 +24,6 @@
       >
         Start game
       </button>
-      <button class="leave-button" (click)="leaveRoom()">Leave room</button>
     </div>
   </div>
 
