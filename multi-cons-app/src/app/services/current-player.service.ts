@@ -50,6 +50,7 @@ export class CurrentPlayerService {
   }
 
   private generateName(): string {
-    return 'Player-' + Math.random().toString(36).substring(2, 6);
+    // return 'Player-' + Math.random().toString(36).substring(2, 6);
+    return Math.random().toString(36).substring(2, 6);
   }
 }

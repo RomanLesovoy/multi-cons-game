@@ -8,7 +8,7 @@ import config from "../config";
 export class EnemyManager extends BaseManager {
   private enemies: Enemy[] = [];
   // private lastUpdateTime: number = 0;
-  // private readonly UPDATE_INTERVAL = 50;
+  // private readonly UPDATE_INTERVAL = 20;
   
   constructor(
     protected override connectionManager: ConnectionManager,
@@ -23,7 +23,7 @@ export class EnemyManager extends BaseManager {
         crypto.randomUUID(),
         `Enemy ${i + 1}`,
         this.getRandomPosition(),
-        Math.random() * 20 + 10,
+        Math.floor(Math.random() * 30) + 4,
       );
       this.enemies.push(enemy);
       this.scene.addEnemy(enemy);
@@ -54,20 +54,28 @@ export class EnemyManager extends BaseManager {
           enemyUpdate.position,
           enemyUpdate.radius || 15,
           enemyUpdate.color,
-          enemyUpdate.speed
         );
       }
     });
-
-    this.scene.syncEnemies(this.enemies);
   }
 
+  // Avoid overload memory
+  // public get shouldUpdate() {
+  //   const currentTime = Date.now();
+  //   return currentTime - this.lastUpdateTime >= this.UPDATE_INTERVAL;
+  // }
+
   update() {
+    // if (!this.shouldUpdate) return;
+
     this.enemies.forEach(enemy => enemy.update());
+    this.scene.syncEnemies(this.enemies);
 
     if (this.connectionManager.isMasterPeer) {
       this.broadcastEnemies();
     }
+
+    // this.lastUpdateTime = Date.now();
   }
 
   public broadcastEnemies = () => this.onlyMasterPeerDecorator(() => {

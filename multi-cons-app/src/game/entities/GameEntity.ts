@@ -3,13 +3,15 @@ import { Position } from "./GameTypes";
 
 export class GameEntity {
   public id: string;
+  public type: 'player' | 'enemy';
   public position: Position;
   public radius: number;
   public color: string;
   protected sprite!: Phaser.GameObjects.Arc;
 
-  constructor(id: string, public name: string, position: Position, radius?: number, color?: string) {
+  constructor(id: string, type: 'player' | 'enemy', public name: string, position: Position, radius?: number, color?: string) {
     this.id = id;
+    this.type = type;
     this.position = position;
     this.color = color || GameEntity.getRandomColor();
     this.radius = radius || 20;

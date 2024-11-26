@@ -12,7 +12,7 @@ const testConfig = {
 export abstract class BaseEntityScene extends Phaser.Scene {
   protected readonly entities: Map<string, {
     sprite: Phaser.GameObjects.Arc;
-    nameText: Phaser.GameObjects.Text;
+    nameText: Phaser.GameObjects.Text | null;
     statsText: Phaser.GameObjects.Text;
   }> = new Map();
 
@@ -53,27 +53,24 @@ export abstract class BaseEntityScene extends Phaser.Scene {
   }
 
   private addEntityTexts(entity: GameEntity) {
-    // Add name above
-    const nameText = this.add.text(
-      entity.position.x,
-      entity.position.y - entity.radius - 15, // Position above sprite
-      entity.name,
-      {
-        fontSize: '16px',
-        ...testConfig,
-      }
-    );
-    nameText.setOrigin(0.5); // Center text
+    // Add name
+    let nameText: Phaser.GameObjects.Text | null = null;
+    if (entity.type === 'player') {
+      nameText = this.add.text(
+        entity.position.x,
+        entity.position.y,
+        entity.name,
+        { fontSize: '16px', ...testConfig }
+      );
+      nameText.setOrigin(0.5); // Center text
+   }
 
     // Add radius below
     const statsText = this.add.text(
       entity.position.x,
-      entity.position.y + entity.radius + 10, // Position below sprite
+      entity.position.y + entity.radius + 10,
       `${100 * entity.radius}`,
-      {
-        fontSize: '14px',
-        ...testConfig,
-      }
+      { fontSize: '14px', ...testConfig }
     );
     statsText.setOrigin(0.5);
 
@@ -88,7 +85,7 @@ export abstract class BaseEntityScene extends Phaser.Scene {
     const entity = this.entities.get(id);
     if (entity) {
       entity.sprite.destroy();
-      entity.nameText.destroy();
+      entity.nameText?.destroy();
       entity.statsText.destroy();
       this.entities.delete(id);
     }
@@ -99,7 +96,7 @@ export abstract class BaseEntityScene extends Phaser.Scene {
     const entity = this.entities.get(id);
     if (entity) {
       entity.sprite.setPosition(x, y);
-      entity.nameText.setPosition(x, y - entity.sprite.radius - 15);
+      entity.nameText?.setPosition(x, y);
       entity.statsText.setPosition(x, y + entity.sprite.radius + 10);
     }
   }

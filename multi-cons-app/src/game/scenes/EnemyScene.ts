@@ -28,7 +28,6 @@ export class EnemyScene extends BaseEntityScene {
     enemies.forEach(enemy => {
       const entity = this.getEntity(enemy.id);
       if (!entity?.sprite) {
-        console.log('create enemy sprite', enemy.id);
         enemy.setSprite(this.createEntitySprite(enemy));
       } else {
         this.updateEntityPosition(enemy.id, enemy.position.x, enemy.position.y);
