@@ -1,16 +1,20 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, distinctUntilChanged } from 'rxjs';
 import { Room } from '../types';
 
 @Injectable({
   providedIn: 'root'
 })
 export class GameStateService {
-  private rooms = new BehaviorSubject<Room[]>([]);
-  readonly rooms$ = this.rooms.asObservable();
+  private readonly rooms = new BehaviorSubject<Room[]>([]);
+  public readonly rooms$ = this.rooms.asObservable().pipe(
+    distinctUntilChanged()
+  );
 
-  private room = new BehaviorSubject<Room | null>(null);
-  readonly room$ = this.room.asObservable();
+  private readonly room = new BehaviorSubject<Room | null>(null);
+  public readonly room$ = this.room.asObservable().pipe(
+    distinctUntilChanged()
+  );
 
   constructor() {
     this.rooms$.subscribe((rooms) => {

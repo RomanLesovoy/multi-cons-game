@@ -2,7 +2,7 @@ import { ConnectionManager } from "../../app/services/ConnectionManager";
 import { CurrentPlayerService } from "../../app/services/current-player.service";
 import { PlayerManager } from "../managers/PlayerManager";
 import { EnemyManager } from "../managers/EnemyManager";
-import { GameStateUpdate } from "../entities/GameTypes";
+import { EnemyUpdate, GameStateUpdate } from "../entities/GameTypes";
 import { EnemyScene } from "./EnemyScene";
 import { PlayerScene } from "./PlayerScene";
 import { MapScene } from "./MapScene";
@@ -11,13 +11,13 @@ import config from "../config";
 export class GameScene extends Phaser.Scene {
   private playerManager!: PlayerManager;
   private enemyManager!: EnemyManager;
-  private playerScene!: PlayerScene;
-  private enemyScene!: EnemyScene;
-  private mapScene!: MapScene;
+  private readonly playerScene!: PlayerScene;
+  private readonly enemyScene!: EnemyScene;
+  private readonly mapScene!: MapScene;
 
   constructor(
-    private connectionManager: ConnectionManager,
-    private currentPlayerService: CurrentPlayerService
+    private readonly connectionManager: ConnectionManager,
+    private readonly currentPlayerService: CurrentPlayerService
   ) {
     super({ key: 'GameScene' });
     
@@ -26,10 +26,32 @@ export class GameScene extends Phaser.Scene {
     this.mapScene = new MapScene();
   }
 
+  private connectDisconnectHandlers = () => {
+    this.connectionManager.setBeforeDestroyCallback((socketId: string) => {
+      this.connectionManager.broadcastGameState({
+        type: 'playerLeft',
+        player: { id: socketId }
+      })
+    });
+
+    this.connectionManager.setOnConnectedCallback((socketId: string) => {
+      const playerData = this.currentPlayerService.getCurrentPlayer()!;
+      this.connectionManager.broadcastGameState({
+        type: 'playerJoin',
+        player: { id: playerData.id, name: playerData.name, position: { x: 400, y: 300 } } // todo position
+      });
+    });
+  }
+
   create() {
     this.coordinateScenes();
 
-    this.connectionManager.setStateUpdateCallback(this.handleGameStateUpdate.bind(this));
+    // Main callback for all state updates
+    this.connectionManager.setStateUpdateCallback(
+      this.handleGameStateUpdate.bind(this) as <GameStateUpdate>(update: GameStateUpdate) => void
+    );
+
+    this.connectDisconnectHandlers();
     
     this.playerManager = new PlayerManager(this.connectionManager, this.playerScene);
     this.enemyManager = new EnemyManager(this.connectionManager, this.enemyScene);
@@ -93,13 +115,13 @@ export class GameScene extends Phaser.Scene {
         scene.cameras.main.centerOn(x, y);
       });
     });
-
-    // this.cameras.main.setBounds(0, 0, config.mapWidth, config.mapHeight);
   }
 
   private handleGameStateUpdate(update: GameStateUpdate) {
-    console.log('handleGameStateUpdate', update);
     switch (update.type) {
+      case 'playerLeft':
+        this.playerManager.removeRemotePlayer(update.player!.id!);
+        break;
       case 'playerJoin':
         this.playerManager.createRemotePlayer(update.player!.id!, update.player!.name!, update.player!.position!);
         break;
@@ -108,9 +130,6 @@ export class GameScene extends Phaser.Scene {
         break;
       case 'enemiesUpdate':
         this.enemyManager.setEnemies(update.enemies!);
-        break;
-      case 'enemiesPush':
-        this.enemyManager.pushEnemies(update.enemies!);
         break;
     }
   }

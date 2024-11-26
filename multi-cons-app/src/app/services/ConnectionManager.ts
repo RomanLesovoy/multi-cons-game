@@ -1,39 +1,64 @@
 import { Socket } from "ngx-socket-io";
 import { PlayerJoinedEvent, RTCOfferEvent, RTCAnswerEvent, RTCIceCandidateEvent, PlayerLeftEvent } from '../types';
-import { GameStateUpdate } from '../../game/entities/GameTypes';
 import { SocketEvents } from './socket.events';
-import { Injectable, OnDestroy } from "@angular/core";
+import { Injectable, isDevMode, OnDestroy } from "@angular/core";
 import { GameStateService } from "./game-state.service";
+import { startWith, pairwise } from "rxjs";
 
 @Injectable({
   providedIn: 'root'
 })
 export class ConnectionManager implements OnDestroy {
-  private peers: Map<string, RTCPeerConnection> = new Map();
-  private dataChannels: Map<string, RTCDataChannel> = new Map();
+  private readonly peers: Map<string, RTCPeerConnection> = new Map();
+  private readonly dataChannels: Map<string, RTCDataChannel> = new Map();
   public isMasterPeer: boolean = false;
-  private stateUpdateCallback?: (update: GameStateUpdate) => void;
+  private readonly peerConnectionReady: Map<string, Promise<void>> = new Map();
+  private stateUpdateCallback?: <T>(update: T) => void;
+  private onConnectedCallback?: (socketId: string) => void;
+  private beforeDestroyCallback?: (socketId: string) => void;
 
   constructor(
     private socket: Socket,
     private gameStateService: GameStateService
   ) {
     // todo maybe move this to game-state service or somewhere else
-    this.gameStateService.room$.subscribe((room) => {
-      if (room) {
-        this.setupSocketListeners();
-      } else {
-        this.destroy();
-      }
+    this.gameStateService.room$
+      .pipe(startWith(null), pairwise())
+      .subscribe(([previousRoom, currentRoom]) => {
+        const roomUpdated = !previousRoom && !!currentRoom;
+        const roomDestroyed = !!previousRoom && !currentRoom;
+        const gameStopped = !!previousRoom?.isGameStarted && !currentRoom?.isGameStarted;
+
+        this.isMasterPeer = this.socket.ioSocket.id === currentRoom?.masterId;
+        console.log('this.isMasterPeer', this.isMasterPeer)
+
+        if (roomUpdated) {
+          console.log('setupSocketListeners')
+          this.setupSocketListeners();
+        } else if (roomDestroyed || gameStopped) {
+          console.log('room destroyed')
+          this.destroy();
+        }
     });
   }
+
+  private debug(type: 'info' | 'warn' | 'error', message: string): void {
+    if (isDevMode()) {
+      console[type] && console[type](message);
+    }
+  }
+
+  // public get isConnected(): boolean {
+  //   return this.peers.size > 0 && this.dataChannels.size > 0
+  //     && Array.from(this.dataChannels.values()).every(channel => channel.readyState === 'open');
+  // }
 
   public setupSocketListeners() {
     this.unsubscribeFromSocketEvents();
 
     // New player joined
-    this.socket.on(SocketEvents.PLAYER_JOINED, ({ player, shouldInitiateConnection, isMaster }: PlayerJoinedEvent) => {
-      this.isMasterPeer = isMaster;
+    this.socket.on(SocketEvents.PLAYER_JOINED, ({ player, shouldInitiateConnection, isMaster: _newPlayerIsMaster }: PlayerJoinedEvent) => {
+      this.debug('info', `Player joined ${player.id}`);
       if (shouldInitiateConnection) {
         this.initiateConnection(player.id);
       }
@@ -41,6 +66,7 @@ export class ConnectionManager implements OnDestroy {
 
     // Player left
     this.socket.on(SocketEvents.PLAYER_LEFT, ({ playerId }: PlayerLeftEvent) => {
+      this.debug('info', `Player left ${playerId}`);
       this.removePeer(playerId);
     });
 
@@ -51,15 +77,20 @@ export class ConnectionManager implements OnDestroy {
 
     this.socket.on(SocketEvents.RTC_ANSWER, ({ from, answer }: RTCAnswerEvent) => {
       const peer = this.peers.get(from);
-      if (peer) peer.setRemoteDescription(answer);
+      if (peer) {
+        peer.setRemoteDescription(answer)
+      } else {
+        this.debug('warn', `No peer found ${from}`);
+      }
     });
 
-    this.socket.on(SocketEvents.RTC_ICE_CANDIDATE, ({ from, candidate }: RTCIceCandidateEvent) => {
+    this.socket.on(SocketEvents.RTC_ICE_CANDIDATE, async ({ from, candidate }: RTCIceCandidateEvent) => {
       const peer = this.peers.get(from);
+      await this.peerConnectionReady.get(from);
       if (peer?.remoteDescription) {
         peer.addIceCandidate(candidate);
       } else {
-        console.warn('No remote description for peer', from);
+        this.debug('warn', `No remote description for peer ${from}`);
       }
     });
   }
@@ -104,6 +135,12 @@ export class ConnectionManager implements OnDestroy {
   private async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
     const peer = await this.initializeConnection(peerId);
 
+    // Solve issue with peer connection not being ready before iceCandidate
+    let resolvePeerReady: () => void;
+    this.peerConnectionReady.set(peerId, new Promise(resolve => {
+      resolvePeerReady = resolve;
+    }));
+
     await peer.setRemoteDescription(offer);
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
@@ -112,15 +149,27 @@ export class ConnectionManager implements OnDestroy {
       targetId: peerId,
       answer
     });
+
+    resolvePeerReady!();
   }
 
-  public setStateUpdateCallback(callback: (update: GameStateUpdate) => void) {
+  public setStateUpdateCallback(callback: <T>(update: T) => void) {
     this.stateUpdateCallback = callback;
+  }
+
+  public setBeforeDestroyCallback(callback: (socketId: string) => void) {
+    this.beforeDestroyCallback = callback;
+  }
+
+  public setOnConnectedCallback(callback: (socketId: string) => void) {
+    this.onConnectedCallback = callback;
   }
 
   private setupDataChannel(channel: RTCDataChannel, peerId: string) {
     channel.onopen = () => {
+      this.debug('info', `Data channel opened ${peerId}`);
       this.dataChannels.set(peerId, channel);
+      this.onConnectedCallback?.(peerId);
     };
 
     channel.onmessage = (event) => {
@@ -129,6 +178,7 @@ export class ConnectionManager implements OnDestroy {
     };
 
     channel.onclose = () => {
+      this.debug('info', `Data channel closed ${peerId}`);
       this.dataChannels.delete(peerId);
     };
   }
@@ -138,9 +188,10 @@ export class ConnectionManager implements OnDestroy {
     this.dataChannels.delete(peerId);
     this.peers.get(peerId)?.close();
     this.peers.delete(peerId);
+    this.peerConnectionReady.delete(peerId);
   }
 
-  public broadcastGameState(state: GameStateUpdate) {
+  public broadcastGameState<T>(state: T) {
     const message = JSON.stringify(state);
     this.dataChannels.forEach(channel => {
       if (channel.readyState === 'open') {
@@ -150,11 +201,14 @@ export class ConnectionManager implements OnDestroy {
   }
 
   public destroy() {
+    this.beforeDestroyCallback?.(this.socket.ioSocket.id);
     this.unsubscribeFromSocketEvents();
     this.peers.forEach(peer => peer.close());
     this.dataChannels.forEach(channel => channel.close());
     this.peers.clear();
     this.dataChannels.clear();
+    this.peerConnectionReady.clear();
+    this.debug('info', 'ConnectionManager destroyed');
   }
 
   private unsubscribeFromSocketEvents() {

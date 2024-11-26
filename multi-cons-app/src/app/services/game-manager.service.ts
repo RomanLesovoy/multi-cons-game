@@ -10,9 +10,9 @@ import { SocketEvents } from './socket.events';
   providedIn: 'root'
 })
 export class GameManagerService implements OnDestroy {
-  private socket = inject(Socket);
-  private gameStateService = inject(GameStateService);
-  private currentPlayerService = inject(CurrentPlayerService);
+  private readonly socket = inject(Socket);
+  private readonly gameStateService = inject(GameStateService);
+  private readonly currentPlayerService = inject(CurrentPlayerService);
 
   constructor() {
     this.setupSocketListeners();

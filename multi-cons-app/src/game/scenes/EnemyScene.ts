@@ -18,7 +18,7 @@ export class EnemyScene extends BaseEntityScene {
   syncEnemies(enemies: Enemy[]) {
     // Remove enemies that are no longer in the list
     const currentEnemyIds = new Set(enemies.map(e => e.id));
-    for (const [id, sprite] of this.entities) {
+    for (const [id, _sprite] of this.entities) {
       if (!currentEnemyIds.has(id)) {
         this.removeEntity(id);
       }
@@ -26,11 +26,10 @@ export class EnemyScene extends BaseEntityScene {
 
     // Update or add new enemies
     enemies.forEach(enemy => {
-      const sprite = this.getEntity(enemy.id);
-      if (!sprite) {
-        enemy.setSprite(
-          this.createEntitySprite(enemy)
-        );
+      const entity = this.getEntity(enemy.id);
+      if (!entity?.sprite) {
+        console.log('create enemy sprite', enemy.id);
+        enemy.setSprite(this.createEntitySprite(enemy));
       } else {
         this.updateEntityPosition(enemy.id, enemy.position.x, enemy.position.y);
       }

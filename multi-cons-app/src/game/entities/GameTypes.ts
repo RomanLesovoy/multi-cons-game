@@ -20,6 +20,7 @@ export interface EnemyState extends GameEntity {
 
 export interface EnemyUpdate extends EnemyState {
   name: string;
+  velocity: Position;
 }
 
 export type GameState = {
@@ -28,7 +29,7 @@ export type GameState = {
 }
 
 export interface GameStateUpdate {
-  type: 'enemiesUpdate' | 'collision' | 'playerUpdate' | 'enemiesPush' | 'playerJoin';
+  type: 'enemiesUpdate' | 'collision' | 'playerUpdate' | 'playerJoin' | 'playerLeft';
   player?: Partial<PlayerState> & { id: string };
   enemies?: EnemyUpdate[];
 }

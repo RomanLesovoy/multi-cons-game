@@ -10,7 +10,7 @@ const testConfig = {
 }
 
 export abstract class BaseEntityScene extends Phaser.Scene {
-  protected entities: Map<string, {
+  protected readonly entities: Map<string, {
     sprite: Phaser.GameObjects.Arc;
     nameText: Phaser.GameObjects.Text;
     statsText: Phaser.GameObjects.Text;

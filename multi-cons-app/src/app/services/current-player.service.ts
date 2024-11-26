@@ -1,15 +1,17 @@
 import { Injectable, inject } from "@angular/core";
 import { Socket } from "ngx-socket-io";
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject, distinctUntilChanged } from "rxjs";
 import { Player } from "../types";
 
 @Injectable({
   providedIn: 'root'
 })
 export class CurrentPlayerService {
-  private socket = inject(Socket);
-  private currentPlayer = new BehaviorSubject<Player | null>(null);
-  readonly currentPlayer$ = this.currentPlayer.asObservable();
+  private readonly socket = inject(Socket);
+  private readonly currentPlayer = new BehaviorSubject<Player | null>(null);
+  public readonly currentPlayer$ = this.currentPlayer.asObservable().pipe(
+    distinctUntilChanged()
+  );
 
   constructor() {
     // todo allow user to set name

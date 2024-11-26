@@ -3,13 +3,14 @@ import { Player } from "../entities/Player";
 import { ConnectionManager } from "../../app/services/ConnectionManager";
 import { PlayerScene } from "../scenes/PlayerScene";
 import config from "../config";
+import { BaseManager } from "./BaseManager";
 
-export class PlayerManager {
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private moveSpeed = 5;
-  private players: Map<string, Player> = new Map();
+export class PlayerManager extends BaseManager {
+  private readonly cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private readonly moveSpeed = 5;
+  private readonly players: Map<string, Player> = new Map();
   private localPlayerId!: string;
-  private worldBounds = {
+  private readonly worldBounds = {
     x: 0,
     y: 0,
     width: config.mapWidth,
@@ -17,9 +18,10 @@ export class PlayerManager {
   };
 
   constructor(
-    private connectionManager: ConnectionManager,
+    protected override connectionManager: ConnectionManager,
     private scene: PlayerScene
   ) {
+    super(connectionManager);
     this.cursors = this.scene.input.keyboard!.createCursorKeys();
   }
 
@@ -32,17 +34,17 @@ export class PlayerManager {
     const player = new Player(this.localPlayerId, playerName, position);
     this.players.set(this.localPlayerId, player);
     this.scene.addPlayer(player);
-
-    this.connectionManager.broadcastGameState({
-      type: 'playerJoin',
-      player: { id: playerId, name: playerName, position }
-    });
   }
 
   public createRemotePlayer(playerId: string, playerName: string, position: Position) {
     const player = new Player(playerId, playerName, position);
     this.players.set(playerId, player);
     this.scene.addPlayer(player);
+  }
+
+  public removeRemotePlayer(playerId: string) {
+    this.players.delete(playerId);
+    this.scene.removePlayer(playerId);
   }
 
   private updateCamera(position: Position) {
@@ -83,6 +85,9 @@ export class PlayerManager {
     }
   }
 
+  /**
+   * It needed to prevent player from moving out of the visible area
+   */
   private movementInVisibleArea(dx: number, dy: number, player: Player): Position {
     const newPosition = {
       x: Phaser.Math.Clamp(
