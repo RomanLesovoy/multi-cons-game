@@ -5,10 +5,17 @@ import { Injectable, isDevMode, OnDestroy } from "@angular/core";
 import { GameStateService } from "./game-state.service";
 import { startWith, pairwise } from "rxjs";
 
+export interface ConnectionStats {
+  currentRoundTripTime?: number; // RTT (ping)
+  packetsLost?: number;
+  timestamp: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class ConnectionManager implements OnDestroy {
+  private peerStats: Map<string, ConnectionStats> = new Map();
   private readonly peers: Map<string, RTCPeerConnection> = new Map();
   private readonly dataChannels: Map<string, RTCDataChannel> = new Map();
   public isMasterPeer: boolean = false;
@@ -21,6 +28,7 @@ export class ConnectionManager implements OnDestroy {
     private socket: Socket,
     private gameStateService: GameStateService
   ) {
+    this.startStatsCollection();
     // todo maybe move this to game-state service or somewhere else
     this.gameStateService.room$
       .pipe(startWith(null), pairwise())
@@ -30,13 +38,10 @@ export class ConnectionManager implements OnDestroy {
         const gameStopped = !!previousRoom?.isGameStarted && !currentRoom?.isGameStarted;
 
         this.isMasterPeer = this.socket.ioSocket.id === currentRoom?.masterId;
-        console.log('this.isMasterPeer', this.isMasterPeer)
 
         if (roomUpdated) {
-          console.log('setupSocketListeners')
           this.setupSocketListeners();
         } else if (roomDestroyed || gameStopped) {
-          console.log('room destroyed')
           this.destroy();
         }
     });
@@ -48,10 +53,38 @@ export class ConnectionManager implements OnDestroy {
     }
   }
 
-  // public get isConnected(): boolean {
-  //   return this.peers.size > 0 && this.dataChannels.size > 0
-  //     && Array.from(this.dataChannels.values()).every(channel => channel.readyState === 'open');
-  // }
+  private async getConnectionStats(peerId: string) {
+    const connection = this.peers.get(peerId);
+    if (!connection) return;
+
+    try {
+      const stats = await connection.getStats();
+      stats.forEach(report => {
+        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+          this.peerStats.set(peerId, {
+            currentRoundTripTime: report.currentRoundTripTime * 1000, // Convert to ms
+            packetsLost: report.packetsLost,
+            timestamp: Date.now()
+          });
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to get connection stats:', error);
+    }
+  }
+
+  // periodically collect stats
+  private startStatsCollection() {
+    setInterval(() => {
+      this.peers.forEach((_, peerId) => {
+        this.getConnectionStats(peerId);
+      });
+    }, 2000);
+  }
+
+  public getPeerStats(peerId: string): ConnectionStats | undefined {
+    return this.peerStats.get(peerId);
+  }
 
   public setupSocketListeners() {
     this.unsubscribeFromSocketEvents();
