@@ -1,4 +1,4 @@
-import config from "../config";
+import config, { mapConfig } from "../config";
 
 export class MapScene extends Phaser.Scene {
   constructor() {
@@ -40,7 +40,12 @@ export class MapScene extends Phaser.Scene {
     graphics.strokeRect(0, 0, config.mapWidth, config.mapHeight);
 
     // Configure the camera
-    this.cameras.main.setBounds(0, 0, config.mapWidth, config.mapHeight);
+    this.cameras.main.setBounds(
+      -mapConfig.leftOffset,
+      -mapConfig.topOffset,
+      config.mapWidth + mapConfig.rightOffset,
+      config.mapHeight + mapConfig.bottomOffset
+    );
     this.cameras.main.setBackgroundColor(0x000000);
   }
 }

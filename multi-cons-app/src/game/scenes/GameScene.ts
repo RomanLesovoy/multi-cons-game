@@ -6,7 +6,7 @@ import { EnemyUpdate, GameStateUpdate } from "../entities/GameTypes";
 import { EnemyScene } from "./EnemyScene";
 import { PlayerScene } from "./PlayerScene";
 import { MapScene } from "./MapScene";
-import config from "../config";
+import config, { mapConfig } from "../config";
 import { CollisionManager } from "../managers/CollisionManager";
 
 export class GameScene extends Phaser.Scene {
@@ -108,9 +108,15 @@ export class GameScene extends Phaser.Scene {
 
     scenes.forEach(scene => {
       // Set camera bounds
-      scene.cameras.main.setBounds(0, 0, config.mapWidth, config.mapHeight);
+      const camera = scene.cameras.main;
+      camera.setBounds(
+        -mapConfig.leftOffset, // Small left offset
+        -mapConfig.topOffset, // Small top offset
+        config.mapWidth + mapConfig.rightOffset, // Add right offset
+        config.mapHeight + mapConfig.bottomOffset // Add bottom offset
+      );
       // Basic camera position
-      scene.cameras.main.setScroll(0, 0);
+      camera.setScroll(0, 0);
     });
 
      this.playerScene.events.on('camera-update', (x: number, y: number) => {
@@ -132,23 +138,18 @@ export class GameScene extends Phaser.Scene {
         this.playerManager.createPlayer(player!.id!, player!.name!, player!.position!);
         break;
       case 'playerUpdate':
-        this.playerManager.updateRemotePlayerState(player!.id!, player!);
+        this.playerManager.updatePlayerState(player!.id!, player!);
         break;
       case 'enemiesUpdate':
         this.enemyManager.setEnemies(enemies!);
         break;
       case 'collision':
-        this.playerManager.updateRemotePlayerState(
-          player!.id, { radius: player!.radius }
-        );
+        this.playerManager.updatePlayerState(player!.id, { radius: player!.radius });
         this.enemyManager.removeEnemy(enemy!.id);
         break;
       case 'playerCollision':
-        this.playerManager.updateRemotePlayerState(
-          winner!.id, { radius: winner!.radius }
-        );
+        this.playerManager.updatePlayerState(winner!.id, { radius: winner!.radius });
         this.playerManager.removeRemotePlayer(loser!.id);
-
         break;
     }
   }

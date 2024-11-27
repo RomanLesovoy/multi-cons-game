@@ -2,6 +2,7 @@ import { GameScene } from "./scenes/GameScene";
 import Phaser from 'phaser';
 import { ConnectionManager } from "../app/services/ConnectionManager";
 import { CurrentPlayerService } from "../app/services/current-player.service";
+import configData from "./config";
 
 export class Game {
   private game: Phaser.Game;
@@ -12,8 +13,8 @@ export class Game {
   ) {
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
-      width: 800,
-      height: 600,
+      width: configData.width,
+      height: configData.height,
       backgroundColor: '#555',
       parent: 'game-container',
       physics: {

@@ -124,24 +124,21 @@ export class PlayerManager extends BaseManager {
     return newPosition;
   }
 
-  public updateRemotePlayerState(id: string, state: Partial<PlayerState>) {
+  public updatePlayerState(id: string, state: Partial<PlayerState>) {
     const player = this.players.get(id);
     if (player) {
       player.updateEntityState(state);
     } else {
-      console.warn('Player not found in updateRemotePlayerState', id);
+      console.warn('Player not found in updatePlayerState', id);
     }
   }
   
   public updateCurrentPlayerState(state: Partial<PlayerState>) {
-    const player = this.players.get(this.localPlayerId);
-    if (player) {
-      player.updateEntityState(state);
+    this.updatePlayerState(this.localPlayerId, state);
 
-      this.connectionManager.broadcastGameState({
-        type: 'playerUpdate',
-        player: { id: this.localPlayerId, ...state }
-      });
-    }
+    this.connectionManager.broadcastGameState({
+      type: 'playerUpdate',
+      player: { id: this.localPlayerId, ...state }
+    });
   }
 }
