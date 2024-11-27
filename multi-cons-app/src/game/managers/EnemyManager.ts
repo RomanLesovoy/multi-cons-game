@@ -1,9 +1,9 @@
 import { Enemy } from "../entities/Enemy";
-import { EnemyUpdate, Position } from "../entities/GameTypes";
+import { EnemyUpdate } from "../entities/GameTypes";
 import { ConnectionManager } from "../../app/services/ConnectionManager";
 import { EnemyScene } from "../scenes/EnemyScene";
 import { BaseManager } from "./BaseManager";
-import config from "../config";
+import { MapScene } from "../scenes/MapScene";
 
 export class EnemyManager extends BaseManager {
   private enemies: Enemy[] = [];
@@ -22,7 +22,7 @@ export class EnemyManager extends BaseManager {
       const enemy = new Enemy(
         crypto.randomUUID(),
         `Enemy ${i + 1}`,
-        this.getRandomPosition(),
+        MapScene.getRandomPosition(),
         Math.floor(Math.random() * 30) + 4,
       );
       this.enemies.push(enemy);
@@ -32,11 +32,9 @@ export class EnemyManager extends BaseManager {
 
   public getEnemies = (): Enemy[] => this.enemies;
 
-  private getRandomPosition(): Position {
-    return {
-      x: Math.random() * (config.mapWidth - 100) + 50, // Offset from edges
-      y: Math.random() * (config.mapHeight - 100) + 50
-    };
+  public removeEnemy(enemyId: string) {
+    this.enemies = this.enemies.filter(enemy => enemy.id !== enemyId);
+    this.scene.removeEnemy(enemyId);
   }
 
   public setEnemies = (enemies: EnemyUpdate[]) => {

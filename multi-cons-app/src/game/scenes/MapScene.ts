@@ -10,6 +10,13 @@ export class MapScene extends Phaser.Scene {
     this.load.image('floor_texture', 'assets/floor_texture.jpg');
   }
 
+  static getRandomPosition() {
+    return {
+      x: Math.random() * (config.mapWidth - 100) + 50, // Offset from edges
+      y: Math.random() * (config.mapHeight - 100) + 50
+    }
+  }
+
   create() {
     // Calculate the number of tiles to fill the entire map
     const tilesX = Math.ceil(config.mapWidth / 200);

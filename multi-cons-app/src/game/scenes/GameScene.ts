@@ -7,10 +7,12 @@ import { EnemyScene } from "./EnemyScene";
 import { PlayerScene } from "./PlayerScene";
 import { MapScene } from "./MapScene";
 import config from "../config";
+import { CollisionManager } from "../managers/CollisionManager";
 
 export class GameScene extends Phaser.Scene {
   private playerManager!: PlayerManager;
   private enemyManager!: EnemyManager;
+  private collisionManager!: CollisionManager;
   private readonly playerScene!: PlayerScene;
   private readonly enemyScene!: EnemyScene;
   private readonly mapScene!: MapScene;
@@ -38,7 +40,7 @@ export class GameScene extends Phaser.Scene {
       const playerData = this.currentPlayerService.getCurrentPlayer()!;
       this.connectionManager.broadcastGameState({
         type: 'playerJoin',
-        player: { id: playerData.id, name: playerData.name, position: { x: 400, y: 300 } } // todo position
+        player: { id: playerData.id, name: playerData.name, position: MapScene.getRandomPosition() }
       });
     });
   }
@@ -55,6 +57,7 @@ export class GameScene extends Phaser.Scene {
     
     this.playerManager = new PlayerManager(this.connectionManager, this.playerScene);
     this.enemyManager = new EnemyManager(this.connectionManager, this.enemyScene);
+    this.collisionManager = new CollisionManager(this.connectionManager, this.playerManager, this.enemyManager);
 
     // Initialize game
     this.setLocalPlayer();
@@ -63,12 +66,12 @@ export class GameScene extends Phaser.Scene {
 
   private setLocalPlayer() {
     const playerData = this.currentPlayerService.getCurrentPlayer()!;
-    this.playerManager.createLocalPlayer(playerData.id, playerData.name, { x: 400, y: 300 }); // todo position
+    this.playerManager.createLocalPlayer(playerData.id, playerData.name, MapScene.getRandomPosition());
 
     this.currentPlayerService.currentPlayer$.subscribe(playerData => {
       // todo end game if no user
       if (playerData) {
-        this.playerManager.updateRemotePlayerState(playerData.id, { name: playerData.name, id: playerData.id });
+        this.playerManager.updateCurrentPlayerState({ name: playerData.name, id: playerData.id });
       }
     });
   }
@@ -82,6 +85,7 @@ export class GameScene extends Phaser.Scene {
   override update() {
     this.playerManager.update();
     this.enemyManager.update();
+    this.collisionManager.checkCollisions();
   }
 
   private coordinateScenes() {
@@ -118,18 +122,33 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleGameStateUpdate(update: GameStateUpdate) {
-    switch (update.type) {
+    const { player, enemy, winner, loser, enemies, type } = update;
+
+    switch (type) {
       case 'playerLeft':
-        this.playerManager.removeRemotePlayer(update.player!.id!);
+        this.playerManager.removeRemotePlayer(player!.id!);
         break;
       case 'playerJoin':
-        this.playerManager.createRemotePlayer(update.player!.id!, update.player!.name!, update.player!.position!);
+        this.playerManager.createPlayer(player!.id!, player!.name!, player!.position!);
         break;
       case 'playerUpdate':
-        this.playerManager.updateRemotePlayerState(update.player!.id!, update.player!);
+        this.playerManager.updateRemotePlayerState(player!.id!, player!);
         break;
       case 'enemiesUpdate':
-        this.enemyManager.setEnemies(update.enemies!);
+        this.enemyManager.setEnemies(enemies!);
+        break;
+      case 'collision':
+        this.playerManager.updateRemotePlayerState(
+          player!.id, { radius: player!.radius }
+        );
+        this.enemyManager.removeEnemy(enemy!.id);
+        break;
+      case 'playerCollision':
+        this.playerManager.updateRemotePlayerState(
+          winner!.id, { radius: winner!.radius }
+        );
+        this.playerManager.removeRemotePlayer(loser!.id);
+
         break;
     }
   }

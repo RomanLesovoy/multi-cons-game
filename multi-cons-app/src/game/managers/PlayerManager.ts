@@ -30,13 +30,20 @@ export class PlayerManager extends BaseManager {
   }
 
   public createLocalPlayer(playerId: string, playerName: string, position: Position) {
+    if (this.getPlayer(playerId)) return;
+
+    this.connectionManager.broadcastGameState({
+      type: 'playerJoin',
+      player: { id: playerId, name: playerName, position }
+    });
     this.localPlayerId = playerId;
-    const player = new Player(this.localPlayerId, playerName, position);
-    this.players.set(this.localPlayerId, player);
-    this.scene.addPlayer(player);
+    this.createPlayer(playerId, playerName, position);
+    this.updateCamera(position);
   }
 
-  public createRemotePlayer(playerId: string, playerName: string, position: Position) {
+  public createPlayer(playerId: string, playerName: string, position: Position) {
+    if (this.getPlayer(playerId)) return;
+
     const player = new Player(playerId, playerName, position);
     this.players.set(playerId, player);
     this.scene.addPlayer(player);
@@ -45,6 +52,18 @@ export class PlayerManager extends BaseManager {
   public removeRemotePlayer(playerId: string) {
     this.players.delete(playerId);
     this.scene.removePlayer(playerId);
+  }
+
+  public getLocalPlayer(): Player | undefined {
+    return this.getPlayer(this.localPlayerId);
+  }
+
+  public getPlayer(playerId: string): Player | undefined {
+    return this.players.get(playerId);
+  }
+
+  public getOtherPlayers(): Player[] {
+    return Array.from(this.players.values()).filter(player => player.id !== this.localPlayerId);
   }
 
   private updateCamera(position: Position) {
@@ -114,7 +133,7 @@ export class PlayerManager extends BaseManager {
     }
   }
   
-  private updateCurrentPlayerState(state: Partial<PlayerState>) {
+  public updateCurrentPlayerState(state: Partial<PlayerState>) {
     const player = this.players.get(this.localPlayerId);
     if (player) {
       player.updateEntityState(state);
