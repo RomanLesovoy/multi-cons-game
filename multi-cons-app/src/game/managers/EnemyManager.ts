@@ -8,8 +8,6 @@ import { MapScene } from "../scenes/MapScene";
 export class EnemyManager extends BaseManager {
   private enemies: Enemy[] = [];
   public maxEnemies: number = 20;
-  private lastUpdateTime: number = 0;
-  private readonly UPDATE_INTERVAL = 30;
   
   constructor(
     protected override connectionManager: ConnectionManager,
@@ -59,28 +57,8 @@ export class EnemyManager extends BaseManager {
     });
   }
 
-  // Avoid overload memory
-  public get shouldUpdate() {
-    const currentTime = Date.now();
-    return currentTime - this.lastUpdateTime >= this.UPDATE_INTERVAL;
-  }
-
   update() {
     this.enemies.forEach(enemy => enemy.update());
     this.scene.syncEnemies(this.enemies);
-
-    if (this.connectionManager.isMasterPeer && this.shouldUpdate) {
-      this.broadcastEnemies();
-      this.lastUpdateTime = Date.now();
-    }
   }
-
-  public broadcastEnemies = () => this.onlyMasterPeerDecorator(() => {
-    this.connectionManager.broadcastGameState({
-      type: 'enemiesUpdate',
-      enemies: this.enemies.map(e => ({
-        ...e.getState<EnemyUpdate>(),
-      }))
-    });
-  })
 }

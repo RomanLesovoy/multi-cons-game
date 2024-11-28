@@ -63,6 +63,10 @@ export class PlayerManager extends BaseManager {
     return this.players.get(playerId);
   }
 
+  public updatePlayers(players: PlayerState[]) {
+    players.filter(player => player.id !== this.localPlayerId).forEach(player => this.updatePlayerState(player.id, player));
+  }
+
   public getOtherPlayers(): Player[] {
     return this.getPlayers().filter(player => player.id !== this.localPlayerId);
   }
