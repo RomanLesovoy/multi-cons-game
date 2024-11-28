@@ -137,13 +137,7 @@ export class ConnectionManager implements OnDestroy {
 
   private async initiateConnection(peerId: string) {
     const peer = await this.initializeConnection(peerId);
-
-    const dataChannelConfig: RTCDataChannelInit = {
-      ordered: false, // Отключаем гарантированную доставку для скорости
-      maxRetransmits: 0, // Отключаем повторные отправки
-    };
-
-    const dataChannel = peer.createDataChannel('gameState', dataChannelConfig);
+    const dataChannel = peer.createDataChannel('gameState');
     this.setupDataChannel(dataChannel, peerId);
 
     const offer = await peer.createOffer();
@@ -193,23 +187,13 @@ export class ConnectionManager implements OnDestroy {
     peer.onconnectionstatechange = () => {
       this.debug('info', `Connection state changed to: ${peer.connectionState} for peer ${peerId}`);
       
-      if (peer.iceConnectionState === 'connected') {
-        // Оптимизируем соединение после успешного подключения
-        this.optimizeConnection(peer, peerId);
-      } else if (peer.iceConnectionState === 'failed' || peer.iceConnectionState === 'disconnected') {
+      if (peer.connectionState === 'failed') {
         this.handleConnectionFailure(peerId, peer);
       }
     };
   
     peer.onicegatheringstatechange = () => {
-      this.debug('info', `Connection state changed to: ${peer.connectionState} for peer ${peerId}`);
-    
-      if (peer.connectionState === 'connected') {
-        // Дополнительно вызываем оптимизацию при установке соединения
-        this.optimizeConnection(peer, peerId);
-      } else if (peer.connectionState === 'failed') {
-        this.handleConnectionFailure(peerId, peer);
-      }
+      this.debug('info', `ICE gathering state changed to: ${peer.iceGatheringState} for peer ${peerId}`);
     };
 
     peer.onicecandidate = ({ candidate }) => {
@@ -227,31 +211,6 @@ export class ConnectionManager implements OnDestroy {
     this.peers.set(peerId, peer);
 
     return peer
-  }
-
-  private optimizeConnection(peer: RTCPeerConnection, peerId: string) {
-    // Устанавливаем высокий приоритет для игровых данных
-    peer.getSenders().forEach(sender => {
-      if (sender.track) {
-        sender.setParameters({
-          ...sender.getParameters(),
-          degradationPreference: 'maintain-framerate',
-          // priority: 'high'
-        });
-      }
-    });
-  
-    // Оптимизируем data channel если он существует
-    const channel = this.dataChannels.get(peerId);
-    if (channel) {
-      channel.bufferedAmountLowThreshold = 16 * 1024; // 16KB
-      
-      // Отправляем данные только если буфер почти пустой
-      channel.onbufferedamountlow = () => {
-        // Можно отправлять данные
-        this.debug('info', `Buffer low for peer ${peerId}`);
-      };
-    }
   }
 
   private async handleConnectionFailure(peerId: string, peer: RTCPeerConnection) {
@@ -320,8 +279,6 @@ export class ConnectionManager implements OnDestroy {
   }
 
   private setupDataChannel(channel: RTCDataChannel, peerId: string) {
-    channel.binaryType = 'arraybuffer';
-
     channel.onopen = () => {
       this.debug('info', `Data channel opened ${peerId}`);
       this.dataChannels.set(peerId, channel);
@@ -329,19 +286,8 @@ export class ConnectionManager implements OnDestroy {
     };
 
     channel.onmessage = (event) => {
-      try {
-        let update;
-        if (event.data instanceof ArrayBuffer) {
-          const decoder = new TextDecoder();
-          const text = decoder.decode(event.data);
-          update = JSON.parse(text);
-        } else {
-          update = JSON.parse(event.data);
-        }
-        this.stateUpdateCallback?.(update);
-      } catch (error) {
-        this.debug('error', `Error parsing message from ${peerId}: ${error}`);
-      }
+      const update = JSON.parse(event.data);
+      this.stateUpdateCallback?.(update);
     };
 
     channel.onclose = () => {
@@ -360,12 +306,9 @@ export class ConnectionManager implements OnDestroy {
 
   public broadcastGameState<T>(state: T) {
     const message = JSON.stringify(state);
-    const encoder = new TextEncoder();
-    const data = encoder.encode(message).buffer;
-
     this.dataChannels.forEach(channel => {
       if (channel.readyState === 'open') {
-        channel.send(data);
+        channel.send(message);
       }
     });
   }
