@@ -34,14 +34,11 @@ export class GameGateway {
       @ConnectedSocket() client: Socket,
       @MessageBody() data: { name: string, playerName: string }
     ) {
-      console.log('create room');
         const room = await this.roomService.createRoom({
           name: data.name,
           maxPlayers: 4,
           masterId: client.id
         });
-
-        console.log('room', room);
 
         try {
           await this.playerJoined(client, { roomId: room.id, playerName: data.playerName }, room);
@@ -134,10 +131,8 @@ export class GameGateway {
     @SubscribeMessage('disconnect')
     async handleDisconnect(@ConnectedSocket() client: Socket) {
         // Find the room where the player was
-        console.log('disconnect', client.id);
         const rooms = await this.roomService.findRoomsByPlayerId(client.id);
         if (!rooms.length) return;
-        console.log(rooms, '0000');
 
         for (let room of rooms) {
           if (room.id !== client.id) { // Skip personal socket room

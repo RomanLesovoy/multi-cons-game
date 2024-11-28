@@ -48,7 +48,7 @@ export class ConnectionManager implements OnDestroy {
   }
 
   private debug(type: 'info' | 'warn' | 'error', message: string): void {
-    if (isDevMode()) {
+    if (isDevMode() || true) {
       console[type] && console[type](message);
     }
   }
@@ -147,6 +147,7 @@ export class ConnectionManager implements OnDestroy {
     const peer = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
+    this.debug('info', `Initialized peer ${peerId}`);
 
     peer.onicecandidate = ({ candidate }) => {
       if (candidate) {
