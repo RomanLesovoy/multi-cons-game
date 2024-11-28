@@ -137,7 +137,13 @@ export class ConnectionManager implements OnDestroy {
 
   private async initiateConnection(peerId: string) {
     const peer = await this.initializeConnection(peerId);
-    const dataChannel = peer.createDataChannel('gameState');
+
+    const dataChannelConfig: RTCDataChannelInit = {
+      ordered: false, // Отключаем гарантированную доставку для скорости
+      maxRetransmits: 0, // Отключаем повторные отправки
+    };
+
+    const dataChannel = peer.createDataChannel('gameState', dataChannelConfig);
     this.setupDataChannel(dataChannel, peerId);
 
     const offer = await peer.createOffer();
@@ -153,15 +159,11 @@ export class ConnectionManager implements OnDestroy {
   private async initializeConnection(peerId: string): Promise<RTCPeerConnection> {
     const peer = new RTCPeerConnection({
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
-        {
-          urls: 'turn:turn.webrtc.org:3478',
-          username: 'webrtc',
-          credential: 'turnserver'
+        { 
+          urls: [
+            'stun:stun.l.google.com:19302',
+            'stun:stun1.l.google.com:19302'
+          ],
         },
         {
           urls: [
@@ -174,7 +176,7 @@ export class ConnectionManager implements OnDestroy {
         }
       ],
       iceTransportPolicy: 'all',
-      iceCandidatePoolSize: 10,
+      iceCandidatePoolSize: 4,
       bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require',
     });
@@ -191,13 +193,23 @@ export class ConnectionManager implements OnDestroy {
     peer.onconnectionstatechange = () => {
       this.debug('info', `Connection state changed to: ${peer.connectionState} for peer ${peerId}`);
       
-      if (peer.connectionState === 'failed') {
+      if (peer.iceConnectionState === 'connected') {
+        // Оптимизируем соединение после успешного подключения
+        this.optimizeConnection(peer, peerId);
+      } else if (peer.iceConnectionState === 'failed' || peer.iceConnectionState === 'disconnected') {
         this.handleConnectionFailure(peerId, peer);
       }
     };
   
     peer.onicegatheringstatechange = () => {
-      this.debug('info', `ICE gathering state changed to: ${peer.iceGatheringState} for peer ${peerId}`);
+      this.debug('info', `Connection state changed to: ${peer.connectionState} for peer ${peerId}`);
+    
+      if (peer.connectionState === 'connected') {
+        // Дополнительно вызываем оптимизацию при установке соединения
+        this.optimizeConnection(peer, peerId);
+      } else if (peer.connectionState === 'failed') {
+        this.handleConnectionFailure(peerId, peer);
+      }
     };
 
     peer.onicecandidate = ({ candidate }) => {
@@ -215,6 +227,31 @@ export class ConnectionManager implements OnDestroy {
     this.peers.set(peerId, peer);
 
     return peer
+  }
+
+  private optimizeConnection(peer: RTCPeerConnection, peerId: string) {
+    // Устанавливаем высокий приоритет для игровых данных
+    peer.getSenders().forEach(sender => {
+      if (sender.track) {
+        sender.setParameters({
+          ...sender.getParameters(),
+          degradationPreference: 'maintain-framerate',
+          // priority: 'high'
+        });
+      }
+    });
+  
+    // Оптимизируем data channel если он существует
+    const channel = this.dataChannels.get(peerId);
+    if (channel) {
+      channel.bufferedAmountLowThreshold = 16 * 1024; // 16KB
+      
+      // Отправляем данные только если буфер почти пустой
+      channel.onbufferedamountlow = () => {
+        // Можно отправлять данные
+        this.debug('info', `Buffer low for peer ${peerId}`);
+      };
+    }
   }
 
   private async handleConnectionFailure(peerId: string, peer: RTCPeerConnection) {
@@ -283,6 +320,8 @@ export class ConnectionManager implements OnDestroy {
   }
 
   private setupDataChannel(channel: RTCDataChannel, peerId: string) {
+    channel.binaryType = 'arraybuffer';
+
     channel.onopen = () => {
       this.debug('info', `Data channel opened ${peerId}`);
       this.dataChannels.set(peerId, channel);
@@ -290,8 +329,19 @@ export class ConnectionManager implements OnDestroy {
     };
 
     channel.onmessage = (event) => {
-      const update = JSON.parse(event.data);
-      this.stateUpdateCallback?.(update);
+      try {
+        let update;
+        if (event.data instanceof ArrayBuffer) {
+          const decoder = new TextDecoder();
+          const text = decoder.decode(event.data);
+          update = JSON.parse(text);
+        } else {
+          update = JSON.parse(event.data);
+        }
+        this.stateUpdateCallback?.(update);
+      } catch (error) {
+        this.debug('error', `Error parsing message from ${peerId}: ${error}`);
+      }
     };
 
     channel.onclose = () => {
@@ -310,9 +360,12 @@ export class ConnectionManager implements OnDestroy {
 
   public broadcastGameState<T>(state: T) {
     const message = JSON.stringify(state);
+    const encoder = new TextEncoder();
+    const data = encoder.encode(message).buffer;
+
     this.dataChannels.forEach(channel => {
       if (channel.readyState === 'open') {
-        channel.send(message);
+        channel.send(data);
       }
     });
   }

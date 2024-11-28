@@ -24,7 +24,7 @@ export class GameScene extends Phaser.Scene {
   private gameEndScene!: GameEndScene;
 
   private lastUpdateTime: number = 0;
-  private readonly UPDATE_INTERVAL = 50;
+  private readonly UPDATE_INTERVAL = 100;
 
   constructor(
     private readonly connectionManager: ConnectionManager,
@@ -107,7 +107,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private generateEnemies(count: number = 20) {
+  private generateEnemies(count: number = 10) {
     if (this.connectionManager.isMasterPeer) {
       this.enemyManager.generateEnemies(count);
     }
@@ -181,9 +181,6 @@ export class GameScene extends Phaser.Scene {
       case 'playerUpdate':
         this.playerManager.updatePlayerState(player!.id!, player!);
         break;
-      // case 'enemiesUpdate':
-      //   this.enemyManager.setEnemies(enemies!);
-      //   break;
       case 'collision':
         this.playerManager.updatePlayerState(player!.id, { radius: player!.radius });
         this.enemyManager.removeEnemy(enemy!.id);
@@ -212,6 +209,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private broadcastAll = () => {
+    console.log('broadcastAll');
     this.connectionManager.broadcastGameState({
       type: 'allUpdate',
       enemies: this.enemyManager.getEnemies().map(e => ({

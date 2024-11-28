@@ -23,7 +23,7 @@ export class EnemyManager extends BaseManager {
         crypto.randomUUID(),
         `Enemy ${i + 1}`,
         MapScene.getRandomPosition(),
-        Math.floor(Math.random() * 30) + 7,
+        Math.floor(Math.random() * 25) + 5,
       );
       this.enemies.push(enemy);
       this.scene.addEnemy(enemy);
