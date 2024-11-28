@@ -19,7 +19,7 @@ export class ConnectionManager implements OnDestroy {
   private readonly peers: Map<string, RTCPeerConnection> = new Map();
   private readonly dataChannels: Map<string, RTCDataChannel> = new Map();
   public isMasterPeer: boolean = false;
-  private readonly peerConnectionReady: Map<string, Promise<void>> = new Map();
+  private iceCandidatesBuffer: Map<string, RTCIceCandidateInit[]> = new Map();
   private stateUpdateCallback?: <T>(update: T) => void;
   private onConnectedCallback?: (socketId: string) => void;
   private beforeDestroyCallback?: (socketId: string) => void;
@@ -119,11 +119,18 @@ export class ConnectionManager implements OnDestroy {
 
     this.socket.on(SocketEvents.RTC_ICE_CANDIDATE, async ({ from, candidate }: RTCIceCandidateEvent) => {
       const peer = this.peers.get(from);
-      await this.peerConnectionReady.get(from);
-      if (peer?.remoteDescription) {
-        peer.addIceCandidate(candidate);
-      } else {
-        this.debug('warn', `No remote description for peer ${from}`);
+      try {
+        if (peer?.remoteDescription) {
+          // Если описание уже установлено, добавляем кандидата сразу
+          await peer.addIceCandidate(candidate);
+        } else {
+          // Иначе буферизуем
+          const buffer = this.iceCandidatesBuffer.get(from) || [];
+          buffer.push(candidate);
+          this.iceCandidatesBuffer.set(from, buffer);
+        }
+      } catch (error) {
+        this.debug('error', `Error handling ICE candidate: ${error}`);
       }
     });
   }
@@ -169,22 +176,29 @@ export class ConnectionManager implements OnDestroy {
   private async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
     const peer = await this.initializeConnection(peerId);
 
-    // Solve issue with peer connection not being ready before iceCandidate
-    let resolvePeerReady: () => void;
-    this.peerConnectionReady.set(peerId, new Promise(resolve => {
-      resolvePeerReady = resolve;
-    }));
+    // Initialize ice candidates buffer
+    this.iceCandidatesBuffer.set(peerId, []);
 
-    await peer.setRemoteDescription(offer);
-    const answer = await peer.createAnswer();
-    await peer.setLocalDescription(answer);
+    try {
+      await peer.setRemoteDescription(offer);
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
 
-    this.socket.emit(SocketEvents.RTC_ANSWER, {
-      targetId: peerId,
-      answer
-    });
+      // Добавляем буферизованные кандидаты
+      const bufferedCandidates = this.iceCandidatesBuffer.get(peerId) || [];
+      for (const candidate of bufferedCandidates) {
+        await peer.addIceCandidate(candidate);
+      }
+      this.iceCandidatesBuffer.delete(peerId);
 
-    resolvePeerReady!();
+      this.socket.emit(SocketEvents.RTC_ANSWER, {
+        targetId: peerId,
+        answer
+      });
+    } catch (error) {
+      this.debug('error', `Error handling offer: ${error}`);
+      this.removePeer(peerId);
+    }
   }
 
   public setStateUpdateCallback(callback: <T>(update: T) => void) {
@@ -222,7 +236,7 @@ export class ConnectionManager implements OnDestroy {
     this.dataChannels.delete(peerId);
     this.peers.get(peerId)?.close();
     this.peers.delete(peerId);
-    this.peerConnectionReady.delete(peerId);
+    this.iceCandidatesBuffer.delete(peerId);
   }
 
   public broadcastGameState<T>(state: T) {
@@ -245,7 +259,7 @@ export class ConnectionManager implements OnDestroy {
     this.dataChannels.forEach(channel => channel.close());
     this.peers.clear();
     this.dataChannels.clear();
-    this.peerConnectionReady.clear();
+    this.iceCandidatesBuffer.clear();
     this.debug('info', 'ConnectionManager destroyed');
   }
 
