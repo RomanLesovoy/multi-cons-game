@@ -153,21 +153,29 @@ export class ConnectionManager implements OnDestroy {
   private async initializeConnection(peerId: string): Promise<RTCPeerConnection> {
     const peer = new RTCPeerConnection({
       iceServers: [
-        { 
-          urls: [
-            'stun:stun.l.google.com:19302',
-            'stun:stun1.l.google.com:19302'
-          ],
-        },
         {
           urls: [
-            'turn:relay1.expressturn.com:3478',
-            'turn:relay1.expressturn.com:3478?transport=tcp',
-            'turns:relay1.expressturn.com:5349'
+            'stun:stun.sky.od.ua:3478',
+            'stun:stun.sovtest.ru:3478',
+            'stun:stun.1cbit.ru:3478',
+            'stun:stun.uavia.eu:3478',
           ],
-          username: 'efCZM3FBZNWT1EU78E',
-          credential: '8pqc9kfD2bnel0c3'
-        }
+        },
+        // { 
+        //   urls: [
+        //     'stun:stun.l.google.com:19302',
+        //     'stun:stun1.l.google.com:19302'
+        //   ],
+        // },
+        // {
+        //   urls: [
+        //     'turn:relay1.expressturn.com:3478',
+        //     'turn:relay1.expressturn.com:3478?transport=tcp',
+        //     'turns:relay1.expressturn.com:5349'
+        //   ],
+        //   username: 'efCZM3FBZNWT1EU78E',
+        //   credential: '8pqc9kfD2bnel0c3'
+        // }
       ],
       iceTransportPolicy: 'all',
       iceCandidatePoolSize: 4,
