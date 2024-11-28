@@ -24,7 +24,7 @@ export class GameScene extends Phaser.Scene {
   private gameEndScene!: GameEndScene;
 
   private lastUpdateTime: number = 0;
-  private readonly UPDATE_INTERVAL = 100;
+  private readonly UPDATE_INTERVAL = 70;
 
   constructor(
     private readonly connectionManager: ConnectionManager,
