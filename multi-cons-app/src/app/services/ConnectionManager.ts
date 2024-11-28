@@ -162,10 +162,21 @@ export class ConnectionManager implements OnDestroy {
           urls: 'turn:turn.webrtc.org:3478',
           username: 'webrtc',
           credential: 'turnserver'
+        },
+        {
+          urls: [
+            'turn:relay1.expressturn.com:3478',
+            'turn:relay1.expressturn.com:3478?transport=tcp',
+            'turns:relay1.expressturn.com:5349'
+          ],
+          username: 'efCZM3FBZNWT1EU78E',
+          credential: '8pqc9kfD2bnel0c3'
         }
       ],
       iceTransportPolicy: 'all',
-      iceCandidatePoolSize: 10
+      iceCandidatePoolSize: 10,
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
     });
     this.debug('info', `Initialized peer ${peerId}`);
 
