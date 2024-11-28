@@ -1,5 +1,5 @@
 <section class="games-container">
-  <h2>Available games</h2>
+  <h2>{{ (games$ | async)!.length > 0 ? 'Available games' : 'No available games' }}</h2>
   
   <div class="games-list">
     <div *ngFor="let game of games$ | async" class="game-item">

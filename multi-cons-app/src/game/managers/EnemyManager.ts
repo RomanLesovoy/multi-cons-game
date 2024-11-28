@@ -7,6 +7,7 @@ import { MapScene } from "../scenes/MapScene";
 
 export class EnemyManager extends BaseManager {
   private enemies: Enemy[] = [];
+  public maxEnemies: number = 20;
   // private lastUpdateTime: number = 0;
   // private readonly UPDATE_INTERVAL = 20;
   
@@ -18,12 +19,13 @@ export class EnemyManager extends BaseManager {
   }
 
   public generateEnemies = (count: number) => this.onlyMasterPeerDecorator(() => {
+    this.maxEnemies = count;
     for (let i = 0; i < count; i++) {
       const enemy = new Enemy(
         crypto.randomUUID(),
         `Enemy ${i + 1}`,
         MapScene.getRandomPosition(),
-        Math.floor(Math.random() * 30) + 4,
+        Math.floor(Math.random() * 30) + 7,
       );
       this.enemies.push(enemy);
       this.scene.addEnemy(enemy);

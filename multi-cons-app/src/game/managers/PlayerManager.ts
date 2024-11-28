@@ -63,7 +63,11 @@ export class PlayerManager extends BaseManager {
   }
 
   public getOtherPlayers(): Player[] {
-    return Array.from(this.players.values()).filter(player => player.id !== this.localPlayerId);
+    return this.getPlayers().filter(player => player.id !== this.localPlayerId);
+  }
+
+  public getPlayers(): Player[] {
+    return Array.from(this.players.values());
   }
 
   private updateCamera(position: Position) {

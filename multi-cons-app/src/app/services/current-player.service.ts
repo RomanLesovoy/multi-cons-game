@@ -28,7 +28,6 @@ export class CurrentPlayerService {
   }
 
   private setSocketData(): void {
-    console.log(this.socket.ioSocket.id, 'socket id');
     this.currentPlayer.next({
       id: this.socket.ioSocket.id,
       name: this.getPlayerName(),

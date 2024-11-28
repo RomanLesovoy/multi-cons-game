@@ -14,7 +14,7 @@ export class ConnectionStatsScene extends Phaser.Scene {
 
   create() {
     setInterval(() => {
-      this.setTexts();
+      this.connectionManager.getPeersLength() > 1 && this.setTexts();
     }, 2000);
   }
 

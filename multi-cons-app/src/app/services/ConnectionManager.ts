@@ -233,6 +233,10 @@ export class ConnectionManager implements OnDestroy {
     });
   }
 
+  public getPeersLength() {
+    return this.peers.size;
+  }
+
   public destroy() {
     this.beforeDestroyCallback?.(this.socket.ioSocket.id);
     this.unsubscribeFromSocketEvents();

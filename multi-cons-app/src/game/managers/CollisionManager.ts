@@ -10,6 +10,7 @@ export class CollisionManager {
     private readonly connectionManager: ConnectionManager,
     private readonly playerManager: PlayerManager,
     private readonly enemyManager: EnemyManager,
+    private readonly onCollision: Function,
   ) {}
 
   private isColliding(entity1: GameEntity, entity2: GameEntity): boolean {
@@ -44,6 +45,7 @@ export class CollisionManager {
     const collisionEffect = (radius: number) => {
       this.enemyManager.removeEnemy(enemy.id);
       this.playerManager.updateCurrentPlayerState({ radius });
+      this.onCollision();
 
       this.connectionManager.broadcastGameState({
         type: 'collision',
@@ -56,19 +58,18 @@ export class CollisionManager {
     };
 
     if (player.radius > enemy.radius) {
-      const newRadius = +(player.radius + (enemy.radius / 10)).toFixed(2);
+      const newRadius = +(player.radius + (enemy.radius / 10));
       collisionEffect(newRadius);
     } else {
-      const newRadius = +(player.radius - (enemy.radius / 10)).toFixed(2);
+      const newRadius = +(player.radius - (enemy.radius / 10));
       collisionEffect(newRadius);
     }
   }
   
   private handlePlayerCollision(localPlayer: Player, otherPlayer: Player) {
     // Big player eats small player
-    console.log('handlePlayerCollision', localPlayer, otherPlayer);
     if (localPlayer.radius > otherPlayer.radius) {
-      const newRadius = +(localPlayer.radius + (otherPlayer.radius / 5)).toFixed(2);
+      const newRadius = +(localPlayer.radius + (otherPlayer.radius / 5));
   
       this.playerManager.updateCurrentPlayerState({ radius: newRadius });
       this.playerManager.removeRemotePlayer(otherPlayer.id);

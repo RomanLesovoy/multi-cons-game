@@ -35,7 +35,7 @@ export class GameEntity {
       this.sprite.setRadius(state.radius);
       const entity = (this.sprite.scene as BaseEntityScene).getEntity(this.id);
       if (entity) {
-        entity.statsText.setText(`${100 * this.radius}`);
+        entity.statsText.setText(`${(100 * this.radius).toFixed(0)}`);
       }
     }
     

@@ -9,8 +9,10 @@ import { MapScene } from "./MapScene";
 import config, { mapConfig } from "../config";
 import { CollisionManager } from "../managers/CollisionManager";
 import { ConnectionStatsScene } from "./ConnectionStatsScene";
+import { GameEndScene } from "./GameEndScene";
 
 export class GameScene extends Phaser.Scene {
+  private gameInitialized = false;
   private playerManager!: PlayerManager;
   private enemyManager!: EnemyManager;
   private collisionManager!: CollisionManager;
@@ -18,6 +20,7 @@ export class GameScene extends Phaser.Scene {
   private readonly enemyScene!: EnemyScene;
   private readonly mapScene!: MapScene;
   private connectionStatsScene!: ConnectionStatsScene;
+  private gameEndScene!: GameEndScene;
 
   constructor(
     private readonly connectionManager: ConnectionManager,
@@ -60,12 +63,18 @@ export class GameScene extends Phaser.Scene {
     
     this.playerManager = new PlayerManager(this.connectionManager, this.playerScene);
     this.enemyManager = new EnemyManager(this.connectionManager, this.enemyScene);
-    this.collisionManager = new CollisionManager(this.connectionManager, this.playerManager, this.enemyManager);
+    this.collisionManager = new CollisionManager(this.connectionManager, this.playerManager, this.enemyManager, this.generateEnemiesAfterEvent);
     this.connectionStatsScene.setPlayerManager(this.playerManager);
 
     // Initialize game
     this.setLocalPlayer();
-    this.setDefaultEnemies();
+    this.generateEnemies();
+
+    // Add game end scene
+    this.gameEndScene = new GameEndScene();
+    this.scene.add('GameEndScene', this.gameEndScene, false);
+
+    this.gameInitialized = this.connectionManager.isMasterPeer;
   }
 
   private setLocalPlayer() {
@@ -80,9 +89,23 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private setDefaultEnemies() {
+  private checkGameEnd() {
+    const players = this.playerManager.getPlayers();
+    const onePlayerLeft = players.length === 1;
+    const noEnemies = this.enemyManager.getEnemies().length === 0;
+
+    if (onePlayerLeft && noEnemies) {
+      const winner = players[0];
+      this.scene.launch('GameEndScene', {
+        winnerIsLocal: winner.id === this.playerManager.getLocalPlayer()?.id,
+        winnerName: winner.name
+      });
+    }
+  }
+
+  private generateEnemies(count: number = 20) {
     if (this.connectionManager.isMasterPeer) {
-      this.enemyManager.generateEnemies(20);
+      this.enemyManager.generateEnemies(count);
     }
   }
 
@@ -90,6 +113,7 @@ export class GameScene extends Phaser.Scene {
     this.playerManager.update();
     this.enemyManager.update();
     this.collisionManager.checkCollisions();
+    this.gameInitialized && this.checkGameEnd();
   }
 
   private coordinateScenes() {
@@ -153,11 +177,22 @@ export class GameScene extends Phaser.Scene {
       case 'collision':
         this.playerManager.updatePlayerState(player!.id, { radius: player!.radius });
         this.enemyManager.removeEnemy(enemy!.id);
+        this.generateEnemiesAfterEvent();
         break;
       case 'playerCollision':
         this.playerManager.updatePlayerState(winner!.id, { radius: winner!.radius });
         this.playerManager.removeRemotePlayer(loser!.id);
         break;
+    }
+
+    !this.gameInitialized && (this.gameInitialized = true);
+  }
+
+  public generateEnemiesAfterEvent = () => {
+    const enemiesCount = this.enemyManager.getEnemies().length;
+    const playersCount = this.playerManager.getOtherPlayers().length;
+    if (playersCount > 0 && enemiesCount <= this.enemyManager.maxEnemies / 5) {
+      this.generateEnemies(this.enemyManager.maxEnemies + 5);
     }
   }
 }

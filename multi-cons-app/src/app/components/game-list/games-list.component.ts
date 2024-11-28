@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { GameStateService } from '../../services/game-state.service';
 
 @Component({
   selector: 'app-games-list',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   templateUrl: './games-list.component.html',
   styleUrls: ['./games-list.component.scss']
 })
