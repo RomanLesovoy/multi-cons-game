@@ -152,9 +152,29 @@ export class ConnectionManager implements OnDestroy {
 
   private async initializeConnection(peerId: string): Promise<RTCPeerConnection> {
     const peer = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+      ],
+      iceTransportPolicy: 'all',
+      iceCandidatePoolSize: 10
     });
     this.debug('info', `Initialized peer ${peerId}`);
+
+    peer.oniceconnectionstatechange = () => {
+      this.debug('info', `ICE connection state changed to: ${peer.iceConnectionState} for peer ${peerId}`);
+    };
+
+    peer.onconnectionstatechange = () => {
+      this.debug('info', `Connection state changed to: ${peer.connectionState} for peer ${peerId}`);
+    };
+  
+    peer.onicegatheringstatechange = () => {
+      this.debug('info', `ICE gathering state changed to: ${peer.iceGatheringState} for peer ${peerId}`);
+    };
 
     peer.onicecandidate = ({ candidate }) => {
       if (candidate) {
