@@ -1,4 +1,5 @@
 import { GameEntity } from "../entities/GameEntity";
+import Phaser from "phaser";
 import config from "../config";
 
 const testConfig = {

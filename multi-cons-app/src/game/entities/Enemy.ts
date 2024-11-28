@@ -1,5 +1,6 @@
 import { GameEntity } from "./GameEntity";
 import { EnemyState, Position } from "./GameTypes";
+import Phaser from "phaser";
 import config from "../config";
 
 export class Enemy extends GameEntity implements EnemyState {

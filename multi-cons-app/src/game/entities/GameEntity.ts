@@ -1,4 +1,5 @@
 import { BaseEntityScene } from "../scenes/BaseEntityScene";
+import Phaser from "phaser";
 import { Position } from "./GameTypes";
 
 export class GameEntity {

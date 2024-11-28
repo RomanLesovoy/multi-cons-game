@@ -1,4 +1,5 @@
 import { ConnectionManager } from "../../app/services/ConnectionManager";
+import Phaser from "phaser";
 import { CurrentPlayerService } from "../../app/services/current-player.service";
 import { PlayerManager } from "../managers/PlayerManager";
 import { EnemyManager } from "../managers/EnemyManager";

@@ -1,4 +1,5 @@
 import { PlayerState, Position } from "../entities/GameTypes";
+import Phaser from "phaser";
 import { Player } from "../entities/Player";
 import { ConnectionManager } from "../../app/services/ConnectionManager";
 import { PlayerScene } from "../scenes/PlayerScene";
