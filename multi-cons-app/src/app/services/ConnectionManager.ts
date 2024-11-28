@@ -157,7 +157,12 @@ export class ConnectionManager implements OnDestroy {
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' }
+        { urls: 'stun:stun4.l.google.com:19302' },
+        {
+          urls: 'turn:turn.webrtc.org:3478',
+          username: 'webrtc',
+          credential: 'turnserver'
+        }
       ],
       iceTransportPolicy: 'all',
       iceCandidatePoolSize: 10
@@ -166,10 +171,18 @@ export class ConnectionManager implements OnDestroy {
 
     peer.oniceconnectionstatechange = () => {
       this.debug('info', `ICE connection state changed to: ${peer.iceConnectionState} for peer ${peerId}`);
+      
+      if (peer.iceConnectionState === 'failed' || peer.iceConnectionState === 'disconnected') {
+        this.handleConnectionFailure(peerId, peer);
+      }
     };
 
     peer.onconnectionstatechange = () => {
       this.debug('info', `Connection state changed to: ${peer.connectionState} for peer ${peerId}`);
+      
+      if (peer.connectionState === 'failed') {
+        this.handleConnectionFailure(peerId, peer);
+      }
     };
   
     peer.onicegatheringstatechange = () => {
@@ -191,6 +204,31 @@ export class ConnectionManager implements OnDestroy {
     this.peers.set(peerId, peer);
 
     return peer
+  }
+
+  private async handleConnectionFailure(peerId: string, peer: RTCPeerConnection) {
+    this.debug('warn', `Connection failed for peer ${peerId}, attempting to reconnect...`);
+    
+    try {
+      // Пробуем переподключиться
+      await peer.restartIce();
+      
+      // Если после 5 секунд соединение все еще не восстановлено
+      setTimeout(() => {
+        if (peer.connectionState === 'failed' || peer.iceConnectionState === 'failed') {
+          this.debug('error', `Reconnection failed for peer ${peerId}, removing peer`);
+          this.removePeer(peerId);
+          
+          // Пробуем установить новое соединение
+          if (this.isMasterPeer) {
+            this.initiateConnection(peerId);
+          }
+        }
+      }, 5000);
+    } catch (error) {
+      this.debug('error', `Error during reconnection for peer ${peerId}: ${error}`);
+      this.removePeer(peerId);
+    }
   }
 
   private async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
