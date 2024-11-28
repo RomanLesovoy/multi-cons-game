@@ -209,7 +209,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private broadcastAll = () => {
-    console.log('broadcastAll');
     this.connectionManager.broadcastGameState({
       type: 'allUpdate',
       enemies: this.enemyManager.getEnemies().map(e => ({
